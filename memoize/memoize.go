@@ -13,7 +13,7 @@ func Unary[K comparable, V any](fn func(K) V) func(K) V {
 		if _, ok := cache[arg]; !ok {
 			mu.RUnlock()
 			result := fn(arg)
-			mu.WLock()
+			mu.Lock()
 			cache[arg] = result
 			mu.Unlock()
 			mu.RLock()

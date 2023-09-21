@@ -15,10 +15,10 @@ const Day = Hour * 24
 // for example, to create a rate of 500 request per hour,
 // say Rate(500, usra.Hour)
 func Rate(amount int, time seconds) rate {
-	return rate{amount, s}
+	return rate{amount, time}
 }
 
-func (r rate) equal(s rate) {
+func (r rate) equal(s rate) bool {
 	return r.capacity == s.capacity && r.sec == s.sec
 }
 
