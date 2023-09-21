@@ -28,7 +28,7 @@ import "sync"
 //		return memoizedFib(n-1) + memoizedFib(n-2)
 //	})
 //
-// This function safe for concurrent use.
+// This function returned by Unary is safe for concurrent use.
 func Unary[K comparable, V any](fn func(K) V) func(K) V {
 	cache := make(map[K]V)
 	var mu sync.RWMutex
