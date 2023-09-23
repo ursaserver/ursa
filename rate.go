@@ -2,7 +2,6 @@ package ursa
 
 import (
 	"errors"
-	"time"
 )
 
 type duration int
@@ -21,7 +20,7 @@ const (
 
 const MaxRatePerSec = 1 // per second
 
-var MaxRateExceedError = errors.New("rate exceed maximum capacity")
+var ErrMaxRateExceed = errors.New("rate exceed maximum capacity")
 
 // Create a rate of some amount per given time for example, to create a rate of
 // 500 request per hour, say Rate(500, ursa.Hour)
@@ -30,21 +29,9 @@ var MaxRateExceedError = errors.New("rate exceed maximum capacity")
 // rate. The rate value when error is not nil must be discarded.
 func Rate(amount int, time duration) (rate, error) {
 	if amount/int(time) > MaxRatePerSec {
-		return rate{}, MaxRateExceedError
+		return rate{}, ErrMaxRateExceed
 	}
 	return rate{amount, time}, nil
-}
-
-func (r rate) equal(s rate) bool {
-	return r.capacity == s.capacity && r.sec == s.sec
-}
-
-// Returns the duration at which it it needs to tick. This ticking duration is
-// used mostly by the gifter to determine when to gift a token.
-func tickOnceEvery(r rate) time.Duration {
-	noOfTickingsPerSecond := float64(r.capacity) / float64(r.sec)
-	ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
-	return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
 }
 
 // Header field to limit the rate by

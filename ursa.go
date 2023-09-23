@@ -17,9 +17,10 @@ type server struct {
 	boxes   map[reqSignature]*box
 	rateBys []RateBy
 	sync.RWMutex
-	conf     Conf
-	pathRate func(reqPath) *rate
-	gifters  []*gifter
+	conf              Conf
+	pathRate          func(reqPath) *rate
+	gifters           []*gifter
+	bucketsStaleAfter time.Duration
 }
 
 type bucketId string
@@ -44,10 +45,12 @@ type bucket struct {
 func New(conf Conf) *server {
 	// TODO initialize gifters
 	s := &server{conf: conf}
-	boxes := make(map[reqSignature]*box)
-	s.boxes = boxes
+	s.boxes = make(map[reqSignature]*box)
+	s.gifters = make([]*gifter, 0)
+	s.bucketsStaleAfter = time.Duration(0)
 	s.pathRate = memoize.Unary(func(r reqPath) *rate {
-		// Note that memoization is possible since the configuration is not changed once loaded.
+		// Note that memoization is possible since the configuration is not
+		// changed once loaded.
 		return rateForPath(r, conf)
 	})
 	// TODO
@@ -56,7 +59,8 @@ func New(conf Conf) *server {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// TODO if the request is made to non rate limited path, forward to reverse proxy immediately
+	// TODO if the request is made to non rate limited path, forward to reverse
+	// proxy immediately
 	sig := findReqSignature(r, s.rateBys)
 	// Find a box for given signature
 	s.RLock()
