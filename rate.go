@@ -1,28 +1,62 @@
 package ursa
 
-type seconds int
+import (
+	"errors"
+	"time"
+)
+
+type duration int
 
 type rate struct {
 	capacity int
-	sec      seconds
+	sec      duration
 }
 
-const Minute = seconds(60)
-const Hour = Minute * 60
-const Day = Hour * 24
+const (
+	second duration = 1 // Note second is intentionally unexported
+	Minute          = second * 60
+	Hour            = Minute * 60
+	Day             = Hour * 24
+)
 
-// Create a rate of some amount per given time
-// for example, to create a rate of 500 request per hour,
-// say Rate(500, usra.Hour)
-func Rate(amount int, time seconds) rate {
-	return rate{amount, time}
+const MaxRatePerSec = 1 // per second
+
+var MaxRateExceedError = errors.New("rate exceed maximum capacity")
+
+// Create a rate of some amount per given time for example, to create a rate of
+// 500 request per hour, say Rate(500, ursa.Hour)
+//
+// The error returned is non-nil when the rate exceeds the maximum supported
+// rate. The rate value when error is not nil must be discarded.
+func Rate(amount int, time duration) (rate, error) {
+	if amount/int(time) > MaxRatePerSec {
+		return rate{}, MaxRateExceedError
+	}
+	return rate{amount, time}, nil
 }
 
 func (r rate) equal(s rate) bool {
 	return r.capacity == s.capacity && r.sec == s.sec
 }
 
+// Returns the duration at which it it needs to tick. This ticking duration is
+// used mostly by the gifter to determine when to gift a token.
+func tickOnceEvery(r rate) time.Duration {
+	noOfTickingsPerSecond := float64(r.capacity) / float64(r.sec)
+	ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
+	return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
+}
+
 // Header field to limit the rate by
 type RateBy string
 
 const rateByIP = RateBy("IP")
+
+// Return the rate based on configuration that should be used for the a given reqPath.
+func rateForPath(r reqPath, conf Conf) *rate {
+	// Search linearly through the routes in the configuration to find a
+	// pattern that matches reqPath. Note that speed won't be an issue here
+	// since this function is supposed to be memoized when using.
+	// Memoization should be possible since the configuration is not changed once loaded.
+	return new(rate)
+}

@@ -14,25 +14,26 @@ type reqSignature string
 type reqPath string
 
 type server struct {
-	boxes   map[reqSignature]box
+	boxes   map[reqSignature]*box
 	rateBys []RateBy
 	sync.RWMutex
 	conf     Conf
-	pathRate func(reqPath) rate
+	pathRate func(reqPath) *rate
+	gifters  []*gifter
 }
 
 type bucketId string
 
 type box struct {
 	id      reqSignature // request signature
-	buckets map[reqPath]bucket
+	buckets map[reqPath]*bucket
 	sync.RWMutex
 }
 
 type bucket struct {
-	id           reqPath // request path
+	id           bucketId
 	tokens       int
-	rate         rate
+	rate         *rate
 	lastAccessed time.Time
 	box          *box
 	sync.Mutex
@@ -40,34 +41,31 @@ type bucket struct {
 
 // Create a server based on provided configuration.
 // Initializes gifters
-func New(conf Conf) server {
+func New(conf Conf) *server {
 	// TODO initialize gifters
 	s := &server{conf: conf}
-	s.boxes := make(map[reqSignature]box)
-	s.pathRate = memoize.Unary(func(r reqPath) rate {
+	boxes := make(map[reqSignature]*box)
+	s.boxes = boxes
+	s.pathRate = memoize.Unary(func(r reqPath) *rate {
 		// Note that memoization is possible since the configuration is not changed once loaded.
 		return rateForPath(r, conf)
 	})
-	// TODO init reverse proxy
-}
-
-// Return the rate based on configuration that should be used for the a given reqPath.
-func rateForPath(r reqPath, conf Conf) rate {
-	// Search linearly through the routes in the configuration to find a
-	// pattern that matches reqPath. Note that speed won't be an issue here
-	// since this function is supposed to be memoized when using.
-	// Memoization should be possible since the configuration is not changed once loaded.
+	// TODO
+	// init reverse proxy
+	return s
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	sig := findReqSignature(r)
+	// TODO if the request is made to non rate limited path, forward to reverse proxy immediately
+	sig := findReqSignature(r, s.rateBys)
 	// Find a box for given signature
 	s.RLock()
 	if _, ok := s.boxes[sig]; !ok {
 		s.RUnlock()
 		// create box with given signature
 		s.Lock()
-		s[sig] = box{id: sig}
+		b := box{id: sig}
+		s.boxes[sig] = &b
 		s.Unlock()
 		s.RLock()
 	}
@@ -104,31 +102,37 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a bucket with given id inside the given box.
 // Initializes various properties of the bucket like capacity, state time, etc.
 // and then registers the bucket to the gifter to collect gift tokens.
-func (s *server) createBucket(id reqPath, b box) {
+func (s *server) createBucket(id reqPath, b *box) {
 	b.Lock()
 	rate := s.pathRate(id)
 	acc := time.Now()
 	tokens := rate.capacity
-	b := bucket{id, tokens, rate, acc, b}
+	b.buckets[id] = &bucket{
+		id:           bucketId(id),
+		tokens:       tokens,
+		rate:         rate,
+		lastAccessed: acc,
+		box:          b,
+		Mutex:        sync.Mutex{},
+	}
 	b.Unlock()
 }
 
-func findReqSignature(r *http.Request, rateBys []RateBy) reqSignature {
+func findReqSignature(req *http.Request, rateBys []RateBy) reqSignature {
 	// Find if any of the header fields in RateBy are present.
 	rateby := rateByIP // default
 	key := ""
 	for _, r := range rateBys {
-		if v := r.Header.Get(r); r != "" {
-			rateBy = r
-			key = r
+		if req.Header.Get(string(r)); r != "" {
+			rateby = r
+			key = string(r)
 			break
 		}
 	}
-	// TODO, set appropriate key based on the downstream IP address.
-	if rateBy == rateByIP {
-		key = "ipaddressvaluetodo"
+	if rateby == rateByIP {
+		key = clientIpAddr(req)
 	}
-	return reqSignature(fmt.Sprintf("%v-%v", rateBy, key))
+	return reqSignature(fmt.Sprintf("%v-%v", rateby, key))
 }
 
 func findPath(r *http.Request) reqPath {
