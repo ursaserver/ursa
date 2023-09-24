@@ -19,21 +19,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Ensure machine has appropriate version of go
+      - name: Setup go
         uses: actions/setup-go@v4
         with:
-          go-version: '^1.21.1'
+          go-version: '1.21.1'
       - name: Check out repo
         uses: actions/checkout@v4
       - name: go fmt
         run: | 
-          # Run go fmt in each directory
-          for i in $(find . -not -path '*/.*' -type d)
-          do 
-            cd $i 
-            go fmt 
-            cd - 
-          done
+          go fmt ./...
           # workaround for when git reports the directory as "dubious" ownership
           git config --global --add safe.directory '*'
           # commit changes if any
@@ -47,9 +41,4 @@ jobs:
       - name: go test
         run: | 
           # Run go fmt in each directory
-          for i in $(find . -not -path '*/.*' -type d)
-          do 
-            cd $i 
-            go test 
-            cd - 
-          done
+          go test ./...
