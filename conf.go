@@ -1,5 +1,10 @@
 package ursa
 
+import (
+	"net/url"
+	"regexp"
+)
+
 type Conf struct {
 	routes       []Route
 	defaultRates map[RateBy]rate
@@ -7,12 +12,12 @@ type Conf struct {
 }
 
 type Route struct {
-	pattern   string // regex describing HTTP path to match
+	pattern   *regexp.Regexp // regex describing HTTP path to match
 	rate      map[RateBy]rate
-	forwardTo string // the address of the server to forward requests to
+	forwardTo *url.URL // the address of the server to forward requests to
 }
 
 type NonRateLimitRoute struct {
-	pattern   string // regex describing HTTP path to match
-	forwardTo string // the address of the server to forward requests to
+	pattern   *regexp.Regexp // regex describing HTTP path to match
+	forwardTo string         // the address of the server to forward requests to
 }
