@@ -19,6 +19,10 @@ type gifter struct {
 	sync.RWMutex
 }
 
+func (g *gifter) String() string {
+	return fmt.Sprintf("gifter %v: %v", g.id, g.server)
+}
+
 // Returns the duration at which it it needs to tick. This ticking duration is
 // used mostly by the gifter to determine when to gift a token.
 func tickOnceEvery(r rate) time.Duration {
@@ -32,6 +36,7 @@ func (g *gifter) start() {
 	g.isRunning = true
 	g.Unlock()
 	ticker := time.NewTicker(tickOnceEvery(g.rate))
+	g.ticker = *ticker
 	// tickingCh := time.Tick(tickOnceEvery(g.rate))
 	go func() {
 		for g.isRunning {
@@ -64,18 +69,6 @@ func (g *gifter) gift() {
 		}
 		bucket.Unlock()
 	})
-}
-
-func (g *gifter) stop() {
-	g.Lock()
-	g.isRunning = false
-	g.Unlock()
-}
-
-func (g *gifter) resume() {
-	g.Lock()
-	g.isRunning = true
-	g.Unlock()
 }
 
 // Add a bucket to the linked list chain of gifters' buckets

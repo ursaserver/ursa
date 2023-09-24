@@ -4,6 +4,7 @@ package ursa
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ type reqSignature string
 type reqPath string
 
 type server struct {
+	id                string
 	conf              Conf
 	rateBys           []RateBy
 	bucketsStaleAfter time.Duration
@@ -22,6 +24,10 @@ type server struct {
 	gifters           map[gifterId]*gifter
 	pathRate          func(reqPath) *rate
 	sync.RWMutex
+}
+
+func (s *server) String() string {
+	return fmt.Sprintf("server %v", s.id)
 }
 
 type bucketId string
@@ -33,6 +39,10 @@ type box struct {
 	sync.RWMutex
 }
 
+func (b *box) String() string {
+	return fmt.Sprintf("box %v: %s", b.id, b.server)
+}
+
 type bucket struct {
 	tokens       int
 	id           bucketId
@@ -42,10 +52,15 @@ type bucket struct {
 	sync.Mutex
 }
 
+func (b *bucket) String() string {
+	return fmt.Sprintf("bucket %v: %s", b.id, b.box)
+}
+
 // Create a server based on provided configuration.
 // Initializes gifters
 func New(conf Conf) *server {
-	s := &server{conf: conf}
+	serverId := fmt.Sprintf("%v", rand.Float64())
+	s := &server{conf: conf, id: serverId}
 	s.boxes = make(map[reqSignature]*box)
 	s.gifters = make(map[gifterId]*gifter)
 	s.bucketsStaleAfter = time.Duration(0)
