@@ -32,6 +32,8 @@ jobs:
             go fmt 
             cd - 
           done
+          # workaround for when git reports the directory as "dubious" ownership
+          git config --global --add safe.directory '*'
           # commit changes if any
           git add -u
           if [[ $(git diff HEAD --name-only | wc -l | bc) > 0 ]]; then
