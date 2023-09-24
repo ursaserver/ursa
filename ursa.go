@@ -3,6 +3,7 @@ package ursa
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -14,28 +15,29 @@ type reqSignature string
 type reqPath string
 
 type server struct {
-	boxes   map[reqSignature]*box
-	rateBys []RateBy
-	sync.RWMutex
 	conf              Conf
-	pathRate          func(reqPath) *rate
-	gifters           []*gifter
+	rateBys           []RateBy
 	bucketsStaleAfter time.Duration
+	boxes             map[reqSignature]*box
+	gifters           map[gifterId]*gifter
+	pathRate          func(reqPath) *rate
+	sync.RWMutex
 }
 
 type bucketId string
 
 type box struct {
+	server  *server
 	id      reqSignature // request signature
 	buckets map[reqPath]*bucket
 	sync.RWMutex
 }
 
 type bucket struct {
-	id           bucketId
 	tokens       int
-	rate         *rate
+	id           bucketId
 	lastAccessed time.Time
+	rate         *rate
 	box          *box
 	sync.Mutex
 }
@@ -43,17 +45,36 @@ type bucket struct {
 // Create a server based on provided configuration.
 // Initializes gifters
 func New(conf Conf) *server {
-	// TODO initialize gifters
 	s := &server{conf: conf}
 	s.boxes = make(map[reqSignature]*box)
-	s.gifters = make([]*gifter, 0)
+	s.gifters = make(map[gifterId]*gifter)
 	s.bucketsStaleAfter = time.Duration(0)
 	s.pathRate = memoize.Unary(func(r reqPath) *rate {
 		// Note that memoization is possible since the configuration is not
 		// changed once loaded.
 		return rateForPath(r, conf)
 	})
-	// TODO
+	for _, route := range conf.routes {
+		rates := route.rate
+		for _, r := range rates {
+			gifterId := generateGifterId(r)
+			// Check if the gifter with the id already exists
+			s.RLock()
+			_, ok := s.gifters[gifterId]
+			s.RUnlock()
+			if !ok {
+				// Create a gifter
+				g := new(gifter)
+				s.Lock()
+				s.gifters[gifterId] = g
+				s.Unlock()
+			}
+		}
+	}
+	// Start gifters
+	for _, g := range s.gifters {
+		g.start()
+	}
 	// init reverse proxy
 	return s
 }
@@ -68,7 +89,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.RUnlock()
 		// create box with given signature
 		s.Lock()
-		b := box{id: sig}
+		b := box{id: sig, server: s}
 		s.boxes[sig] = &b
 		s.Unlock()
 		s.RLock()
@@ -111,7 +132,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 	rate := s.pathRate(id)
 	acc := time.Now()
 	tokens := rate.capacity
-	b.buckets[id] = &bucket{
+	newBucket := &bucket{
 		id:           bucketId(id),
 		tokens:       tokens,
 		rate:         rate,
@@ -119,7 +140,15 @@ func (s *server) createBucket(id reqPath, b *box) {
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
+	b.buckets[id] = newBucket
 	b.Unlock()
+	b.server.RLock()
+	gifter, ok := b.server.gifters[generateGifterId(*rate)]
+	if !ok {
+		log.Fatalf("cannot find gifter for rate %v", *rate)
+	}
+	// add the bucket to appropriate gifter
+	gifter.addBucket(newBucket)
 }
 
 func findReqSignature(req *http.Request, rateBys []RateBy) reqSignature {

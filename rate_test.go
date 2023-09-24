@@ -2,10 +2,6 @@ package ursa
 
 import "testing"
 
-func RateTestTickOnceEvery(t *testing.T) {
-	// TODO
-}
-
 func RateTestEqual(t *testing.T) {
 	// TODO
 }
