@@ -35,7 +35,7 @@ type bucketId string
 type box struct {
 	server  *server
 	id      reqSignature // request signature
-	buckets map[reqPath]*bucket
+	buckets map[bucketId]*bucket
 	sync.RWMutex
 }
 
@@ -44,8 +44,8 @@ func (b *box) String() string {
 }
 
 type bucket struct {
-	tokens       int
 	id           bucketId
+	tokens       int
 	lastAccessed time.Time
 	rate         *rate
 	box          *box
@@ -100,28 +100,28 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sig := findReqSignature(r, s.rateBys)
 	// Find a box for given signature
 	s.RLock()
-	if _, ok := s.boxes[sig]; !ok {
-		s.RUnlock()
+	_, ok := s.boxes[sig]
+	s.RUnlock()
+	if !ok {
 		// create box with given signature
 		s.Lock()
 		b := box{id: sig, server: s}
 		s.boxes[sig] = &b
 		s.Unlock()
-		s.RLock()
 	}
+	s.RLock()
 	b := s.boxes[sig]
 	path := findPath(r)
 	b.RLock()
-	if _, ok := b.buckets[path]; !ok {
-		s.RUnlock()
-		// create bucket,
+	_, ok = b.buckets[bucketId(path)]
+	if !ok {
 		s.createBucket(path, b)
-		s.RLock()
 	}
-	// While we're here, we can safely assume that the gifter isn't deleting
-	// thus this bucket as it would require gifter to acquire a Write Lock
+
+	// At this position, we can safely assume that the gifter isn't deleting
+	// this bucket as it would require gifter to acquire a Write Lock to the box
 	// which can't be granted while there's still a reader.
-	buck := b.buckets[path]
+	buck := b.buckets[bucketId(path)]
 	b.RUnlock()
 
 	buck.Lock()
@@ -155,7 +155,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
-	b.buckets[id] = newBucket
+	b.buckets[bucketId(id)] = newBucket
 	b.Unlock()
 	b.server.RLock()
 	gifter, ok := b.server.gifters[generateGifterId(*rate)]

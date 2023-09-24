@@ -65,6 +65,10 @@ func (g *gifter) gift() {
 			// gifters linked list chain if the stale time has exceeded
 			if time.Now().After(bucket.lastAccessed.Add(staleDuration)) {
 				g.buckets.removeNode(n)
+				// delete the bucket from the box
+				n.value.box.Lock()
+				delete(n.value.box.buckets, n.value.id)
+				n.value.box.Unlock()
 			}
 		}
 		bucket.Unlock()
