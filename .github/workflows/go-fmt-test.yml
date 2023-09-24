@@ -18,9 +18,11 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.21
     steps:
+      - name: Ensure machine has appropriate version of go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '^1.21.1'
       - name: Check out repo
         uses: actions/checkout@v4
       - name: go fmt
