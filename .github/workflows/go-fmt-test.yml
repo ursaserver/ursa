@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 jobs:
-  fmt test:
+  test:
     runs-on: ubuntu-latest
     container:
       image: golang:1.21
