@@ -12,8 +12,10 @@ import (
 	"github.com/ursaserver/ursa/memoize"
 )
 
-type reqSignature string
-type reqPath string
+type (
+	reqSignature string
+	reqPath      string
+)
 
 type server struct {
 	id                string
