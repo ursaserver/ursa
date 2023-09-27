@@ -6,18 +6,20 @@ import (
 )
 
 type Conf struct {
-	routes       []Route
-	defaultRates map[RateBy]rate
-	nonRateLimit []NonRateLimitRoute
+	Upstream *url.URL
+	Routes   []Route
+	BaseRate rate
+	// Todo add default rates
+	// DefaultRates map[RateBy]rate
+	// TODO add non options to specify non-rate limiting routes
+	// nonRateLimit []NonRateLimitRoute
 }
 
 type Route struct {
-	pattern   *regexp.Regexp // regex describing HTTP path to match
-	rate      map[RateBy]rate
-	forwardTo *url.URL // the address of the server to forward requests to
+	Pattern *regexp.Regexp // regex describing HTTP path to match
+	Rates   RouteRates
 }
 
-type NonRateLimitRoute struct {
-	pattern   *regexp.Regexp // regex describing HTTP path to match
-	forwardTo string         // the address of the server to forward requests to
-}
+// type NonRateLimitRoute struct {
+// 	Pattern *regexp.Regexp // regex describing HTTP path to match
+// }

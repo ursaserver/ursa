@@ -4,6 +4,9 @@ import (
 	"errors"
 )
 
+// Header field to limit the rate by
+type RateBy string
+
 type duration int
 
 type rate struct {
@@ -18,9 +21,15 @@ const (
 	Day             = Hour * 24
 )
 
-const MaxRatePerSec = 1 // per second
+const (
+	RateByIP      = RateBy("IP")
+	MaxRatePerSec = 1 // per second
+)
 
-var ErrMaxRateExceed = errors.New("rate exceed maximum capacity")
+var (
+	ErrMaxRateExceed = errors.New("rate exceed maximum capacity")
+	errRouteNotFound = errors.New("route not found")
+)
 
 // Create a rate of some amount per given time for example, to create a rate of
 // 500 request per hour, say Rate(500, ursa.Hour)
@@ -34,16 +43,33 @@ func Rate(amount int, time duration) (rate, error) {
 	return rate{amount, time}, nil
 }
 
-// Header field to limit the rate by
-type RateBy string
+type RouteRates = map[RateBy]rate
 
-const rateByIP = RateBy("IP")
-
-// Return the rate based on configuration that should be used for the a given reqPath.
-func rateForPath(r reqPath, conf Conf) *rate {
+// Returns the route on configuration that should be used for the a given
+// reqPath. If no matching rate is found, nil, is returned.
+func routeForPath(p reqPath, conf *Conf) *Route {
 	// Search linearly through the routes in the configuration to find a
 	// pattern that matches reqPath. Note that speed won't be an issue here
 	// since this function is supposed to be memoized when using.
 	// Memoization should be possible since the configuration is not changed once loaded.
-	return new(rate)
+	for _, r := range conf.Routes {
+		if r.Pattern.MatchString(string(p)) {
+			return &r
+		}
+	}
+	return nil
+}
+
+// Returns the rate to be used for the the given route based on given
+// configuration and and rateBy params. Expects conf and route to be non nil.
+// TODO, still needs to be reasonsed what are the consequences of returning
+// *rate vs rate
+func rateForRoute(conf *Conf, r *Route, rateBy RateBy) *rate {
+	var toReturn *rate
+	if v, ok := r.Rates[rateBy]; !ok {
+		toReturn = &conf.BaseRate
+	} else {
+		toReturn = &v
+	}
+	return toReturn
 }
