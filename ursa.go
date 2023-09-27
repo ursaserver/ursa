@@ -89,7 +89,12 @@ func New(conf Conf) *server {
 			s.RUnlock()
 			if !ok {
 				// Create a gifter
-				g := new(gifter)
+				g := &gifter{
+					rate:    r,
+					server:  s,
+					id:      gifterId,
+					buckets: new(linkedList[*bucket]),
+				}
 				s.Lock()
 				s.gifters[gifterId] = g
 				s.Unlock()
@@ -133,7 +138,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// create box with given signature and rateBy fields
 		s.Lock()
-		b := box{id: sig, server: s, rateBy: rateBy}
+		b := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
 		s.boxes[sig] = &b
 		s.Unlock()
 	}
@@ -142,6 +147,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := findPath(r)
 	b.RLock()
 	_, ok = b.buckets[bucketId(path)]
+	b.RUnlock()
 	if !ok {
 		s.createBucket(path, b)
 	}
