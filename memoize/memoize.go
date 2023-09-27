@@ -9,7 +9,7 @@ import "sync"
 // When working with a recursive function, for example,
 //
 //	func fib(n){
-//			if (n < 2) {return 0} else {return fib(n-1) + fib(n-2)}
+//		if (n < 2) {return 0} else {return fib(n-1) + fib(n-2)}
 //	}
 //
 //	 It is NOT enough to create a memoized function by merely saying

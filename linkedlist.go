@@ -48,6 +48,8 @@ func (l *linkedList[any]) removeNode(n *node[any]) *node[any] {
 	}
 	// l has more than 2 nodes
 	// Since n isn't first or the last, n has both prev and next nodes
+	// TODO
+	// Check for null dererence if accessed concurrently
 	n.prev.next = n.next
 	return n.next
 }

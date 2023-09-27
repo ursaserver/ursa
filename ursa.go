@@ -131,6 +131,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO if the request is made to non rate limited path, forward to reverse
 	// proxy immediately
 	rateBy, sig := findReqSignature(r, s.rateBys)
+	log.Println("got request at", r.URL.Path)
 	// Find a box for given signature
 	s.RLock()
 	_, ok := s.boxes[sig]
@@ -138,28 +139,33 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// create box with given signature and rateBy fields
 		s.Lock()
-		b := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
-		s.boxes[sig] = &b
+		log.Println("creating bucket with signature", sig)
+		bx := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
+		s.boxes[sig] = &bx
 		s.Unlock()
 	}
 	s.RLock()
-	b := s.boxes[sig]
+	bx := s.boxes[sig]
 	path := findPath(r)
-	b.RLock()
-	_, ok = b.buckets[bucketId(path)]
-	b.RUnlock()
+	bx.RLock()
+	_, ok = bx.buckets[bucketId(path)]
+	bx.RUnlock()
 	if !ok {
-		s.createBucket(path, b)
+		log.Println("creating bucket for path", path)
+		s.createBucket(path, bx)
 	}
 
 	// At this position, we can safely assume that the gifter isn't deleting
 	// this bucket as it would require gifter to acquire a Write Lock to the box
 	// which can't be granted while there's still a reader.
-	buck := b.buckets[bucketId(path)]
-	b.RUnlock()
+	bx.RLock()
+	buck := bx.buckets[bucketId(path)]
+	log.Println("bucket is", buck)
+	bx.RUnlock()
 
+	log.Println("before locking bucket to check for token count", buck)
 	buck.Lock()
-	defer buck.Unlock()
+	log.Println("locking bucket to check for token count", buck)
 	// We check if the no. of tokens is >= 1
 	// Note that by allowing the tokens to go below negative value, we're enforcing
 	// a punishment mechanism for when request is made when you're already rate limited.
@@ -168,9 +174,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// TODO enhance rejection message. Probably allow it to make customizable
 		// Note that by allowing the tokens to go below negative value, we're enforcing
 		// a punishment mechanism for when request is made when you're already rate limited.
-		tryAgainInSeconds := buck.tokens * int(tickOnceEvery(*buck.rate).Seconds())
+		tryAgainInSeconds := buck.tokens * -1 * int(tickOnceEvery(*buck.rate).Seconds())
 		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		w.WriteHeader(http.StatusTooManyRequests)
+		buck.Unlock()
 		return
 	}
 	// Just before leaving, we set the last accessed time on the bucket
@@ -202,15 +209,19 @@ func (s *server) createBucket(id reqPath, b *box) {
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
+	log.Println("created new bucket 1", newBucket)
 	b.buckets[bucketId(id)] = newBucket
+	log.Println("created new bucket 2", newBucket)
 	b.Unlock()
 	b.server.RLock()
 	gifter, ok := b.server.gifters[generateGifterId(*rate)]
 	if !ok {
 		log.Fatalf("cannot find gifter for rate %v", *rate)
 	}
+	log.Println("adding gifter to appropriate gifter", id)
 	// add the bucket to appropriate gifter
 	gifter.addBucket(newBucket)
+	log.Println("gifter added", id)
 }
 
 // Find what the request signature should be for a request and also finds what
