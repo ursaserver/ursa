@@ -12,15 +12,18 @@ type node[T any] struct {
 // It is safe to use zero value of this type.
 type linkedList[T any] struct {
 	head *node[T]
+	tail *node[T]
 }
 
 // Adds a node to the beginning of the linked list chain in O(1) time
 func (l *linkedList[any]) addNode(n *node[any]) {
 	if l.head == nil {
 		l.head = n
+		l.tail = n
 		return
 	}
 	n.next = l.head
+	l.head.prev = n
 	l.head = n
 }
 
@@ -38,19 +41,25 @@ func (l *linkedList[any]) removeNode(n *node[any]) *node[any] {
 	// If n is the first node
 	if l.head == n {
 		l.head = n.next
+		// Since n could also be the last node, we need
+		// do the following conditionally
+		if n.next != nil {
+			n.next.prev = nil // Note not a circular linked list, so first node's prev is nil
+		}
 		return n.next
 	}
 	// l has more than 1 nodes
-	// If n is the last node
+	// If n is the last node and not the first node
 	if n.next == nil {
-		n.prev = nil
+		n.prev.next = nil // Note not a circular linked list, so last node's next is nil
 		return n.prev
 	}
 	// l has more than 2 nodes
 	// Since n isn't first or the last, n has both prev and next nodes
-	// TODO
-	// Check for null dererence if accessed concurrently
+	// Set the next reference of the previous node
 	n.prev.next = n.next
+	// Set the previous reference of the next node
+	n.next.prev = n.prev
 	return n.next
 }
 
@@ -68,6 +77,7 @@ func (l *linkedList[any]) traverse(f func(*node[any])) {
 	}
 }
 
+// Creates a linked list in the order opposite of the slice
 func createLinkedListFromSlice[T any](items []T) linkedList[T] {
 	l := linkedList[T]{}
 	for _, item := range items {
@@ -77,6 +87,7 @@ func createLinkedListFromSlice[T any](items []T) linkedList[T] {
 	return l
 }
 
+// Creates a slice in the same order as the order of nodes in linked list
 func createSliceFromLinkedList[T any](l linkedList[T]) []T {
 	items := make([]T, 0)
 	l.traverse(func(n *node[T]) {

@@ -209,9 +209,8 @@ func (s *server) createBucket(id reqPath, b *box) {
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
-	log.Println("created new bucket 1", newBucket)
 	b.buckets[bucketId(id)] = newBucket
-	log.Println("created new bucket 2", newBucket)
+	log.Println("created new bucket", newBucket)
 	b.Unlock()
 	b.server.RLock()
 	gifter, ok := b.server.gifters[generateGifterId(*rate)]

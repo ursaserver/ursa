@@ -29,7 +29,7 @@ func TestLinkedListToFromSlice(t *testing.T) {
 	}
 	tests := []test{
 		{items: []int{}},
-		{items: []int{}},
+		{items: []int{1}},
 		{items: []int{1, 2}},
 		{items: []int{1, 2, 3}},
 	}
@@ -41,6 +41,15 @@ func TestLinkedListToFromSlice(t *testing.T) {
 			foundItems = append(foundItems, current.value)
 			current = current.next
 		}
+		// Find slice from the back (tail node)
+		current = l.tail
+		itemsFromBack := make([]int, 0)
+		for current != nil {
+			itemsFromBack = append(itemsFromBack, current.value)
+			current = current.prev
+		}
+		compareSlices(test.items, itemsFromBack, t)
+		// Check for items from the back as well
 		slices.Reverse(foundItems)
 		compareSlices(test.items, foundItems, t)
 		s := createSliceFromLinkedList(l)
@@ -89,7 +98,7 @@ func TestLinkedListNodeInsertion(t *testing.T) {
 	}
 }
 
-func TesLinkedListNodeDeletion(t *testing.T) {
+func TestLinkedListNodeDeletion(t *testing.T) {
 	type test struct {
 		itemsToAdd []int
 	}
@@ -111,5 +120,33 @@ func TesLinkedListNodeDeletion(t *testing.T) {
 		if l.head != nil {
 			t.Error("expected linked list to point to nil but got", l.head)
 		}
+	}
+	// Test deleting some selected nodes
+	tests = []test{
+		{itemsToAdd: []int{}},
+		{itemsToAdd: []int{88}},
+		{itemsToAdd: []int{11}},
+		{itemsToAdd: []int{11, 25}},
+		{itemsToAdd: []int{11, 25, 30}},
+		{itemsToAdd: []int{1, 5, 10, 15, 20, 25, 30}},
+	}
+	for _, test := range tests {
+		items := test.itemsToAdd
+		l := createLinkedListFromSlice[int](items)
+		shouldKeep := func(x int) bool { return x <= 10 || x >= 25 }
+		l.traverse(func(n *node[int]) {
+			if !shouldKeep(n.value) {
+				l.removeNode(n)
+			}
+		})
+		itemsFound := createSliceFromLinkedList(l)
+		expectedItems := make([]int, 0)
+		for _, item := range items {
+			if shouldKeep(item) {
+				expectedItems = append(expectedItems, item)
+			}
+		}
+		slices.Reverse(expectedItems)
+		compareSlices[int](expectedItems, itemsFound, t)
 	}
 }
