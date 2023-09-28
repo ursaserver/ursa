@@ -146,6 +146,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.RLock()
 	bx := s.boxes[sig]
+	s.RUnlock()
 	path := findPath(r)
 	bx.RLock()
 	_, ok = bx.buckets[bucketId(path)]
@@ -193,6 +194,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *server) createBucket(id reqPath, b *box) {
 	b.Lock()
 	var rate *rate
+	// TODO
+	// Here we are assuming that it's safe to read the pathRate function without
+	// grabbing a lock since this attribute is set once during server creation
+	// and never changed later.
+	// Grabbing a Read lock isn't too big of performance issue if needed
+	// but it will mean that someone waiting on a write lock will block until
+	// all read locks are released.
 	matchingRoute := s.pathRate(id)
 	if matchingRoute == nil {
 		rate = &b.server.conf.BaseRate
@@ -214,6 +222,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 	b.Unlock()
 	b.server.RLock()
 	gifter, ok := b.server.gifters[generateGifterId(*rate)]
+	b.server.RUnlock()
 	if !ok {
 		log.Fatalf("cannot find gifter for rate %v", *rate)
 	}
