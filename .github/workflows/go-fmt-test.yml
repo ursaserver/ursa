@@ -25,6 +25,10 @@ jobs:
           go-version: '1.21.1'
       - name: Check out repo
         uses: actions/checkout@v4
+      - name: go vet
+        # Checks for potentially problematic code not found by compiler   
+        # https://pkg.go.dev/cmd/vet
+        run: go vet ./...
       - name: go fmt
         run: | 
           go fmt ./...
