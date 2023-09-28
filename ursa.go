@@ -183,6 +183,12 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Just before leaving, we set the last accessed time on the bucket
 	buck.lastAccessed = time.Now()
+	// Note that it's important to release this lock before calling ServeHTTP
+	// because we would otherwise be unnecessarily holding the lock until we get
+	// response from upstream and return that response. This is also the
+	// reason why we can't use defer buck.Unlock() or defer s.Unlock()
+	// unless we group our code into smaller functions that have no other code
+	// besides the critical section.
 	buck.Unlock()
 	// Call HTTPServer of the underlying ReverseProxy
 	s.proxy.ServeHTTP(w, r)
