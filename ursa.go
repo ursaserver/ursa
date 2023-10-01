@@ -149,7 +149,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.RUnlock()
 	path := findPath(r)
 	bx.RLock()
-	_, ok = bx.buckets[bucketId(path)]
+	// TODO
+	// Here we are assuming that it's safe to read the pathRate function without
+	// grabbing a lock since this attribute is set once during server creation
+	// and never changed later.
+	// Grabbing a Read lock isn't too big of performance issue if needed
+	// but it will mean that someone waiting on a write lock will block until
+	// all read locks are released.
+	matchingRoute := s.pathRate(path)
+	_, ok = bx.buckets[bucketIdForRoute(matchingRoute, path)]
 	bx.RUnlock()
 	if !ok {
 		log.Println("creating bucket for path", path)
@@ -160,7 +168,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// this bucket as it would require gifter to acquire a Write Lock to the box
 	// which can't be granted while there's still a reader.
 	bx.RLock()
-	buck := bx.buckets[bucketId(path)]
+	buck := bx.buckets[bucketIdForRoute(matchingRoute, path)]
 	log.Println("bucket is", buck)
 	bx.RUnlock()
 
@@ -215,15 +223,16 @@ func (s *server) createBucket(id reqPath, b *box) {
 	}
 	acc := time.Now()
 	tokens := rate.capacity
+	idForBucket := bucketIdForRoute(matchingRoute, id)
 	newBucket := &bucket{
-		id:           bucketId(id),
+		id:           idForBucket,
 		tokens:       tokens,
 		rate:         rate,
 		lastAccessed: acc,
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
-	b.buckets[bucketId(id)] = newBucket
+	b.buckets[idForBucket] = newBucket
 	log.Println("created new bucket", newBucket)
 	b.Unlock()
 	b.server.RLock()
@@ -261,4 +270,9 @@ func findReqSignature(req *http.Request, rateBys []RateBy) (RateBy, reqSignature
 // somethign to do with trailing slashes or such.
 func findPath(r *http.Request) reqPath {
 	return reqPath(r.URL.Path)
+}
+
+// Create bucket id for route
+func bucketIdForRoute(r *Route, _ reqPath) bucketId {
+	return bucketId(r.Pattern.String())
 }
