@@ -184,8 +184,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Note that by allowing the tokens to go below negative value, we're enforcing
 		// a punishment mechanism for when request is made when you're already rate limited.
 		tryAgainInSeconds := buck.tokens * -1 * int(tickOnceEvery(*buck.rate).Seconds())
-		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		buck.Unlock()
 		return
 	}
