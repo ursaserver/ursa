@@ -65,7 +65,7 @@ func (b *bucket) String() string {
 // Create a server based on provided configuration.
 func New(conf Conf) *server {
 	// Validates configuration. The validation func takes care of exist in case of error.
-	ValidateConf(conf)
+	ValidateConf(conf, true)
 	serverId := fmt.Sprintf("%v", rand.Float64())
 	s := &server{conf: &conf, id: serverId}
 	s.boxes = make(map[reqSignature]*box)
@@ -113,18 +113,26 @@ func New(conf Conf) *server {
 	return s
 }
 
-// Validate configuration
-// exists all the error messages if the config is invalid
-func ValidateConf(conf Conf) {
+// Checks if the provided configuration is valid.
+// If exitOnErr is true, prints all the error messages and exists the process
+// by calling os.Exit(1).
+// If exitOnErr is false then returns a boolean if the configuration is valid.
+func ValidateConf(conf Conf, exitOnErr bool) bool {
 	hasError := false
 	err := func() { hasError = true }
+	print := func(str string) {
+		if exitOnErr {
+			fmt.Println(str)
+		}
+	}
 	if conf.Upstream == nil {
-		fmt.Println("upstream url can't be nil")
+		print("upstream url can't be nil")
 		err()
 	}
-	if hasError {
+	if hasError && exitOnErr {
 		os.Exit(1)
 	}
+	return hasError
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +157,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.RUnlock()
 	path := findPath(r)
 	bx.RLock()
-	_, ok = bx.buckets[bucketId(path)]
+	// TODO
+	// Here we are assuming that it's safe to read the pathRate function without
+	// grabbing a lock since this attribute is set once during server creation
+	// and never changed later.
+	// Grabbing a Read lock isn't too big of performance issue if needed
+	// but it will mean that someone waiting on a write lock will block until
+	// all read locks are released.
+	matchingRoute := s.pathRate(path)
+	_, ok = bx.buckets[bucketIdForRoute(matchingRoute, path)]
 	bx.RUnlock()
 	if !ok {
 		log.Println("creating bucket for path", path)
@@ -160,7 +176,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// this bucket as it would require gifter to acquire a Write Lock to the box
 	// which can't be granted while there's still a reader.
 	bx.RLock()
-	buck := bx.buckets[bucketId(path)]
+	buck := bx.buckets[bucketIdForRoute(matchingRoute, path)]
 	log.Println("bucket is", buck)
 	bx.RUnlock()
 
@@ -176,8 +192,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Note that by allowing the tokens to go below negative value, we're enforcing
 		// a punishment mechanism for when request is made when you're already rate limited.
 		tryAgainInSeconds := buck.tokens * -1 * int(tickOnceEvery(*buck.rate).Seconds())
-		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		buck.Unlock()
 		return
 	}
@@ -214,16 +230,17 @@ func (s *server) createBucket(id reqPath, b *box) {
 		rate = rateForRoute(b.server.conf, matchingRoute, b.rateBy)
 	}
 	acc := time.Now()
-	tokens := rate.capacity
+	tokens := rate.Capacity
+	idForBucket := bucketIdForRoute(matchingRoute, id)
 	newBucket := &bucket{
-		id:           bucketId(id),
+		id:           idForBucket,
 		tokens:       tokens,
 		rate:         rate,
 		lastAccessed: acc,
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
-	b.buckets[bucketId(id)] = newBucket
+	b.buckets[idForBucket] = newBucket
 	log.Println("created new bucket", newBucket)
 	b.Unlock()
 	b.server.RLock()
@@ -261,4 +278,9 @@ func findReqSignature(req *http.Request, rateBys []RateBy) (RateBy, reqSignature
 // somethign to do with trailing slashes or such.
 func findPath(r *http.Request) reqPath {
 	return reqPath(r.URL.Path)
+}
+
+// Create bucket id for route
+func bucketIdForRoute(r *Route, _ reqPath) bucketId {
+	return bucketId(r.Pattern.String())
 }

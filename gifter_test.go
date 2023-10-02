@@ -21,7 +21,7 @@ func TestTickOnceEvery(t *testing.T) {
 		expected := test.t
 		got := tickOnceEvery(test.r)
 		if expected != got {
-			t.Errorf("expected tick interval %v got %v for rate %vreqs/%vsecs", expected, got, test.r.capacity, test.r.sec)
+			t.Errorf("expected tick interval %v got %v for rate %vreqs/%vsecs", expected, got, test.r.Capacity, test.r.RefillDurationInSec)
 		}
 	}
 }

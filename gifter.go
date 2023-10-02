@@ -27,7 +27,7 @@ func (g *gifter) String() string {
 // Returns the duration at which it it needs to tick. This ticking duration is
 // used mostly by the gifter to determine when to gift a token.
 func tickOnceEvery(r rate) time.Duration {
-	noOfTickingsPerSecond := float64(r.capacity) / float64(r.sec)
+	noOfTickingsPerSecond := float64(r.Capacity) / float64(r.RefillDurationInSec)
 	ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
 	return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
 }
@@ -59,7 +59,7 @@ func (g *gifter) gift() {
 	g.buckets.traverse(func(n *node[*bucket]) {
 		bucket := n.value
 		bucket.Lock()
-		if bucket.tokens < bucket.rate.capacity {
+		if bucket.tokens < bucket.rate.Capacity {
 			bucket.tokens++
 			log.Println("bucket", bucket, "now has", bucket.tokens, "tokens")
 		} else {
@@ -96,5 +96,5 @@ func (g *gifter) addBucket(b *bucket) {
 
 // Generate gifter id based on rate
 func generateGifterId(r rate) gifterId {
-	return gifterId(fmt.Sprintf("%v-%v", r.capacity, r.sec))
+	return gifterId(fmt.Sprintf("%v-%v", r.Capacity, r.RefillDurationInSec))
 }
