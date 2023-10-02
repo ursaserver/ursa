@@ -65,7 +65,7 @@ func (b *bucket) String() string {
 // Create a server based on provided configuration.
 func New(conf Conf) *server {
 	// Validates configuration. The validation func takes care of exist in case of error.
-	ValidateConf(conf)
+	ValidateConf(conf, true)
 	serverId := fmt.Sprintf("%v", rand.Float64())
 	s := &server{conf: &conf, id: serverId}
 	s.boxes = make(map[reqSignature]*box)
@@ -113,18 +113,26 @@ func New(conf Conf) *server {
 	return s
 }
 
-// Validate configuration
-// exists all the error messages if the config is invalid
-func ValidateConf(conf Conf) {
+// Checks if the provided configuration is valid.
+// If exitOnErr is true, prints all the error messages and exists the process
+// by calling os.Exit(1).
+// If exitOnErr is false then returns a boolean if the configuration is valid.
+func ValidateConf(conf Conf, exitOnErr bool) bool {
 	hasError := false
 	err := func() { hasError = true }
+	print := func(str string) {
+		if exitOnErr {
+			fmt.Println(str)
+		}
+	}
 	if conf.Upstream == nil {
-		fmt.Println("upstream url can't be nil")
+		print("upstream url can't be nil")
 		err()
 	}
-	if hasError {
+	if hasError && exitOnErr {
 		os.Exit(1)
 	}
+	return hasError
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +230,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 		rate = rateForRoute(b.server.conf, matchingRoute, b.rateBy)
 	}
 	acc := time.Now()
-	tokens := rate.capacity
+	tokens := rate.Capacity
 	idForBucket := bucketIdForRoute(matchingRoute, id)
 	newBucket := &bucket{
 		id:           idForBucket,

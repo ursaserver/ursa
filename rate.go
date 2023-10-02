@@ -10,8 +10,8 @@ type RateBy string
 type duration int
 
 type rate struct {
-	capacity int
-	sec      duration
+	Capacity            int
+	RefillDurationInSec duration
 }
 
 const (
