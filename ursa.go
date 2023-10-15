@@ -262,9 +262,12 @@ func findReqSignature(req *http.Request, rateBys []RateBy) (RateBy, reqSignature
 	rateby := RateByIP // default
 	key := ""
 	for _, r := range rateBys {
-		if req.Header.Get(string(r)); r != "" {
+		if r == RateByIP {
+			continue
+		}
+		if val := req.Header.Get(string(r)); val != "" {
 			rateby = r
-			key = string(r)
+			key = string(val)
 			break
 		}
 	}
