@@ -12,9 +12,15 @@ import (
 const HelloMSG = "Hello World\n"
 
 var (
-	upstreamAt               = ":8012"
-	ratelimiterPort          = 3012
-	homeAuthenticatedRate, _ = ursa.Rate(10, ursa.Minute)
+	upstreamAt      = ":8012"
+	ratelimiterPort = 3012
+	// Note that we keep these numbers small for the ease of testing.
+	// In particular, one the issues that may arise if this number is large is that
+	// when we expect the request to be rate limited, it might succeed because
+	// the gifter has had time to gift the token.
+	// This has not been a problem in running tests locally, but we've seen this
+	// in tests run in github actions.
+	homeAuthenticatedRate, _ = ursa.Rate(4, ursa.Minute)
 	baseRate, _              = ursa.Rate(2, ursa.Minute)
 )
 
