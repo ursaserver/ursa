@@ -278,14 +278,14 @@ func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader
 		}
 		if val := req.Header.Get(r.header); val != "" {
 			rateby = r
-			key = string(val)
+			key = rateby.signature(val)
 			break
 		}
 	}
 	if rateby.header == RateByIP.header {
 		key = clientIpAddr(req)
 	}
-	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby, key)), rateby.valid(key)
+	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby.header, key)), rateby.valid(key)
 }
 
 // Gets path of the request. This is made a separte function in case there is
