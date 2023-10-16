@@ -51,36 +51,36 @@ func helperChecker(tests []test, t *testing.T) {
 // 	helperChecker(tests, t)
 // }
 
-func TestAuthenticated(t *testing.T) {
-	// Start rate limiter
-	// go ratelimiter(ratelimiterPort)
-
-	tests := make([]test, 0)
-	// Auth
-	authHeader := make(map[string]string)
-	authHeader["Authorization"] = "123"
-
-	// Send valid authenticated requests, expect to succeed
-	for i := 0; i < homeAuthenticatedRate.Capacity; i++ {
-		tests = append(tests,
-			test{expectCode: http.StatusOK, url: upstreamUrl(), headers: authHeader})
-	}
-	helperChecker(tests, t)
-}
-
-// func TestInvalidAuth(t *testing.T) {
+// func TestAuthenticated(t *testing.T) {
 // 	// Start rate limiter
 // 	// go ratelimiter(ratelimiterPort)
 //
 // 	tests := make([]test, 0)
 // 	// Auth
-// 	authHeaderInvalid := make(map[string]string)
-// 	authHeaderInvalid["Authorization"] = "1"
-// 	// Send invalid authentication request, expect to fail
-// 	tests = append(tests,
-// 		test{expectCode: http.StatusUnauthorized, url: upstreamUrl(), headers: authHeaderInvalid})
+// 	authHeader := make(map[string]string)
+// 	authHeader["Authorization"] = "123"
+//
+// 	// Send valid authenticated requests, expect to succeed
+// 	for i := 0; i < homeAuthenticatedRate.Capacity; i++ {
+// 		tests = append(tests,
+// 			test{expectCode: http.StatusOK, url: upstreamUrl(), headers: authHeader})
+// 	}
 // 	helperChecker(tests, t)
 // }
+
+func TestInvalidAuth(t *testing.T) {
+	// Start rate limiter
+	// go ratelimiter(ratelimiterPort)
+
+	tests := make([]test, 0)
+	// Auth
+	authHeaderInvalid := make(map[string]string)
+	authHeaderInvalid["Authorization"] = "1"
+	// Send invalid authentication request, expect to fail
+	tests = append(tests,
+		test{expectCode: http.StatusUnauthorized, url: upstreamUrl(), headers: authHeaderInvalid})
+	helperChecker(tests, t)
+}
 
 func upstreamUrl() string {
 	return fmt.Sprintf("http://localhost:%d", ratelimiterPort)
