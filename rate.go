@@ -22,8 +22,8 @@ const (
 )
 
 const (
-	RateByIP      = RateBy("IP")
-	MaxRatePerSec = 1 // per second
+	RateByIP          = RateBy("IP")
+	MaxRequestsPerSec = 1 // per second
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 // The error returned is non-nil when the rate exceeds the maximum supported
 // rate. The rate value when error is not nil must be discarded.
 func Rate(amount int, time duration) (rate, error) {
-	if amount/int(time) > MaxRatePerSec {
+	if amount/int(time) > MaxRequestsPerSec {
 		return rate{}, ErrMaxRateExceed
 	}
 	return rate{amount, time}, nil
