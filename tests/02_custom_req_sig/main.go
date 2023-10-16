@@ -31,5 +31,5 @@ func ratelimiter(rateLimiterPort int) {
 		fmt.Println("invalid configuration, cannot start server")
 	}
 	handler := ursa.New(configuration)
-	http.ListenAndServe(fmt.Sprintf(":%d", rateLimiterPort), handler)
+	http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", rateLimiterPort), handler)
 }
