@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 
@@ -25,7 +26,12 @@ var (
 )
 
 func conf() (ursa.Conf, error) {
-	RateByAuth := ursa.RateBy("Authorization") // Header field to limit rate by
+	RateByAuth := ursa.RateByHeader(
+		"Authorization",
+		func(s string) bool { return len(s) > 1 },
+		func(s string) string { return s },
+		http.StatusUnauthorized,
+		"Unauthorized")
 	upstreamURLStr := fmt.Sprintf("http://localhost%s", upstreamAt)
 	upstream, err := url.Parse(upstreamURLStr)
 	if err != nil {

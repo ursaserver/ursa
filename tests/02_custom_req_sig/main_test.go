@@ -25,14 +25,24 @@ func TestAuthenticationSignature(t *testing.T) {
 
 	// Auth header
 	authHeader := make(map[string]string)
+	authHeaderInvalid := make(map[string]string)
 	authHeader["Authorization"] = "123"
+	authHeaderInvalid["Authorization"] = "1"
 
-	// Send authenticated requests, expect to succeed
+	// Send valid authenticated requests, expect to succeed
 	for i := 0; i < homeAuthenticatedRate.Capacity; i++ {
-		tests = append(tests, test{expectCode: 200, url: upstreamUrl(), headers: authHeader})
+		tests = append(tests,
+			test{expectCode: http.StatusOK, url: upstreamUrl(), headers: authHeader})
 	}
+	// Send invalid authentication request, expect to fail
+	tests = append(tests,
+		test{expectCode: http.StatusUnauthorized, url: upstreamUrl(), headers: authHeaderInvalid})
+
 	// Send one more expect to be rate limited
-	tests = append(tests, test{expectCode: 429, url: upstreamUrl(), headers: authHeader})
+	tests = append(tests,
+		test{expectCode: http.StatusTooManyRequests, url: upstreamUrl(), headers: authHeader})
+	tests = append(tests,
+		test{expectCode: http.StatusTooManyRequests, url: upstreamUrl(), headers: authHeader})
 
 	for _, test := range tests {
 		client := new(http.Client)

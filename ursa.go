@@ -22,7 +22,7 @@ type (
 type server struct {
 	id                string
 	conf              *Conf
-	rateBys           []RateBy
+	rateBys           []*rateByHeader
 	bucketsStaleAfter time.Duration
 	boxes             map[reqSignature]*box
 	gifters           map[gifterId]*gifter
@@ -40,7 +40,7 @@ type bucketId string
 type box struct {
 	server  *server
 	id      reqSignature // request signature
-	rateBy  RateBy
+	rateBy  *rateByHeader
 	buckets map[bucketId]*bucket
 	sync.RWMutex
 }
@@ -77,7 +77,7 @@ func New(conf Conf) *server {
 		// changed once loaded.
 		return routeForPath(r, &conf)
 	})
-	allRateBys := make(map[RateBy]bool)
+	allRateBys := make(map[*rateByHeader]bool)
 	for _, route := range conf.Routes {
 		rates := route.Rates
 		for rateBy, r := range rates {
@@ -101,7 +101,7 @@ func New(conf Conf) *server {
 			}
 		}
 	}
-	s.rateBys = make([]RateBy, 0)
+	s.rateBys = make([]*rateByHeader, 0)
 	for k := range allRateBys {
 		s.rateBys = append(s.rateBys, k)
 	}
@@ -138,7 +138,14 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO if the request is made to non rate limited path, forward to reverse
 	// proxy immediately
-	rateBy, sig := findReqSignature(r, s.rateBys)
+	rateBy, sig, isvalid := findReqSignature(r, s.rateBys)
+	// Note that it's faster to check and fail on invalid request signature
+	// thus we're not decrementing the token for any invalid token
+	if !isvalid {
+		w.WriteHeader(rateBy.failCode)
+		fmt.Fprint(w, rateBy.failMsg)
+		return
+	}
 	log.Println("got request at", r.URL.Path)
 	// Find a box for given signature
 	s.RLock()
@@ -257,24 +264,28 @@ func (s *server) createBucket(id reqPath, b *box) {
 
 // Find what the request signature should be for a request and also finds what
 // is the thing to rate limit by (RateBy) the given request.
-func findReqSignature(req *http.Request, rateBys []RateBy) (RateBy, reqSignature) {
+func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader, reqSignature, bool) {
 	// Find if any of the header fields in RateBy are present.
 	rateby := RateByIP // default
 	key := ""
 	for _, r := range rateBys {
-		if r == RateByIP {
+		// Note here that we could have checked r != RateByIP but
+		// checking   might also guard cases when serval instances of
+		// RateByIP are created by deferencing and copying the struct
+		// into different variable.
+		if r.header == RateByIP.header {
 			continue
 		}
-		if val := req.Header.Get(string(r)); val != "" {
+		if val := req.Header.Get(r.header); val != "" {
 			rateby = r
 			key = string(val)
 			break
 		}
 	}
-	if rateby == RateByIP {
+	if rateby.header == RateByIP.header {
 		key = clientIpAddr(req)
 	}
-	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby, key))
+	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby, key)), rateby.valid(key)
 }
 
 // Gets path of the request. This is made a separte function in case there is

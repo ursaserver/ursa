@@ -4,15 +4,29 @@ import (
 	"errors"
 )
 
-// Header field to limit the rate by
-type RateBy string
-
 type duration int
 
 type rate struct {
 	Capacity            int
 	RefillDurationInSec duration
 }
+
+type rateByHeader struct {
+	header string // Header field to limit the rate by
+	valid  func(string) bool
+	// signature is a function that converts the header value into
+	// something. Here signature means the identity of the user/downstream
+	// client that this header value represents. For example if the header
+	// value is JWT token, the signature function is the one that takes an
+	// access token and returns user id (or sth like that) that serves as
+	// the name of the bucket. For details see
+	// https://github.com/ursaserver/ursa/issues/12
+	signature func(string) string
+	failCode  int    // Status code when the validation fails
+	failMsg   string // Message to respond with if the validation fails
+}
+
+type RouteRates = map[*rateByHeader]rate
 
 const (
 	second duration = 1 // Note second is intentionally unexported
@@ -22,14 +36,23 @@ const (
 )
 
 const (
-	RateByIP          = RateBy("IP")
 	MaxRequestsPerSec = 1 // per second
 )
 
 var (
+	RateByIP = RateByHeader(
+		"IP",
+		func(_ string) bool { return true }, // Validation
+		func(s string) string { return s },  // Header to signature map. We use identity here
+		400,
+		"")
 	ErrMaxRateExceed = errors.New("rate exceed maximum capacity")
 	errRouteNotFound = errors.New("route not found")
 )
+
+func RateByHeader(name string, valid func(string) bool, signature func(string) string, failCode int, failMsg string) *rateByHeader {
+	return &rateByHeader{name, valid, signature, failCode, failMsg}
+}
 
 // Create a rate of some amount per given time for example, to create a rate of
 // 500 request per hour, say Rate(500, ursa.Hour)
@@ -42,8 +65,6 @@ func Rate(amount int, time duration) (rate, error) {
 	}
 	return rate{amount, time}, nil
 }
-
-type RouteRates = map[RateBy]rate
 
 // Returns the route on configuration that should be used for the a given
 // reqPath. If no matching rate is found, nil, is returned.
@@ -64,7 +85,7 @@ func routeForPath(p reqPath, conf *Conf) *Route {
 // configuration and and rateBy params. Expects conf and route to be non nil.
 // TODO, still needs to be reasonsed what are the consequences of returning
 // *rate vs rate
-func rateForRoute(conf *Conf, r *Route, rateBy RateBy) *rate {
+func rateForRoute(conf *Conf, r *Route, rateBy *rateByHeader) *rate {
 	var toReturn *rate
 	if v, ok := r.Rates[rateBy]; !ok {
 		toReturn = &conf.BaseRate
