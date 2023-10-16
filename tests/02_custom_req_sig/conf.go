@@ -22,7 +22,7 @@ var (
 	// This has not been a problem in running tests locally, but we've seen this
 	// in tests run in github actions.
 	homeAuthenticatedRate, _ = ursa.Rate(10, ursa.Hour)
-	baseRate, _              = ursa.Rate(5, ursa.Hour)
+	baseRate, _              = ursa.Rate(1, ursa.Hour)
 )
 
 func conf() (ursa.Conf, error) {
