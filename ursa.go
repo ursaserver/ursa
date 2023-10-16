@@ -154,7 +154,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// create box with given signature and rateBy fields
 		s.Lock()
-		log.Println("creating bucket with signature", sig)
+		log.Println("creating box with signature", sig)
 		bx := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
 		s.boxes[sig] = &bx
 		s.Unlock()
