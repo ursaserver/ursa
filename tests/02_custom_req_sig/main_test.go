@@ -40,16 +40,16 @@ func helperChecker(tests []test, t *testing.T) {
 	}
 }
 
-// func TestUnAuthenticated(t *testing.T) {
-// 	tests := make([]test, 0)
-// 	// Send unauthenticated request
-// 	for i := 0; i < baseRate.Capacity; i++ {
-// 		tests = append(tests, test{expectCode: 200, url: upstreamUrl()})
-// 	}
-// 	// Send one more request, expect to be rate limited
-// 	tests = append(tests, test{expectCode: 429, url: upstreamUrl()})
-// 	helperChecker(tests, t)
-// }
+func TestUnAuthenticated(t *testing.T) {
+	tests := make([]test, 0)
+	// Send unauthenticated request
+	for i := 0; i < baseRate.Capacity; i++ {
+		tests = append(tests, test{expectCode: 200, url: upstreamUrl()})
+	}
+	// Send one more request, expect to be rate limited
+	tests = append(tests, test{expectCode: 429, url: upstreamUrl()})
+	helperChecker(tests, t)
+}
 
 func TestAuthenticated(t *testing.T) {
 	// Start rate limiter
