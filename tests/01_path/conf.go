@@ -10,10 +10,10 @@ import (
 )
 
 var (
-	upstreamURLStr    = "http://localhost:8012"
-	ratelimiterPort   = 3012
-	pageDetailRate, _ = ursa.Rate(2, ursa.Minute)
-	baseRate, _       = ursa.Rate(5, ursa.Minute)
+	upstreamURLStr  = "http://localhost:8012"
+	ratelimiterPort = 3012
+	pageDetailRate  = ursa.Rate(2, ursa.Minute)
+	baseRate        = ursa.Rate(5, ursa.Minute)
 )
 
 func conf() (ursa.Conf, error) {

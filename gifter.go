@@ -3,6 +3,7 @@ package ursa
 import (
 	"fmt"
 	"log"
+	"math"
 	"sync"
 	"time"
 )
@@ -27,9 +28,10 @@ func (g *gifter) String() string {
 // Returns the duration at which it it needs to tick. This ticking duration is
 // used mostly by the gifter to determine when to gift a token.
 func tickOnceEvery(r rate) time.Duration {
-	noOfTickingsPerSecond := float64(r.Capacity) / float64(r.RefillDurationInSec)
-	ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
-	return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
+	// noOfTickingsPerSecond := float64(r.Capacity) / float64(r.RefillDurationInSec)
+	// ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
+	// return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
+	return time.Duration(r.RefillDurationInSec * duration(time.Second))
 }
 
 func (g *gifter) start() {
@@ -60,7 +62,9 @@ func (g *gifter) gift() {
 		bucket := n.value
 		bucket.Lock()
 		if bucket.tokens < bucket.rate.Capacity {
-			bucket.tokens++
+			// Gifter giftes rate.Capacity tokens at max
+			bucket.tokens = min(bucket.tokens+bucket.rate.Capacity, bucket.rate.Capacity)
+			bucket.lastGifted = time.Now()
 			log.Println("bucket", bucket, "now has", bucket.tokens, "tokens")
 		} else {
 			// If the bucket is full remove the node containing bucket from
@@ -97,4 +101,16 @@ func (g *gifter) addBucket(b *bucket) {
 // Generate gifter id based on rate
 func generateGifterId(r rate) gifterId {
 	return gifterId(fmt.Sprintf("%v-%v", r.Capacity, r.RefillDurationInSec))
+}
+
+// Find in seconds the seconds to wait before you'll have > 0 tokens
+func secondsBeforeSuccess(currentTime time.Time, lastGiftedTime time.Time, r *rate, tokens int) int {
+	// If at least one token present currently, no need to wait
+	if tokens > 0 {
+		return 0
+	}
+	tokensNeeded := float64(-1*tokens + 1)
+	noOfGiftingsNeeded := math.Ceil(tokensNeeded / float64(r.Capacity))
+	successAt := lastGiftedTime.Add(time.Duration(noOfGiftingsNeeded * float64(tickOnceEvery(*r))))
+	return int(successAt.Sub(currentTime).Seconds())
 }
