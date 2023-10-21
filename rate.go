@@ -4,14 +4,18 @@ import (
 	"errors"
 )
 
-type duration int
+type (
+	duration                 int
+	IsValidHeaderValue       func(string) bool
+	SignatureFromHeaderValue func(string) string
+)
 
 type rate struct {
 	Capacity            int
 	RefillDurationInSec duration
 }
 
-type rateByHeader struct {
+type rateBy struct {
 	header string // Header field to limit the rate by
 	valid  func(string) bool
 	// signature is a function that converts the header value into
@@ -26,7 +30,7 @@ type rateByHeader struct {
 	failMsg   string // Message to respond with if the validation fails
 }
 
-type RouteRates = map[*rateByHeader]rate
+type RouteRates = map[*rateBy]rate
 
 const (
 	second duration = 1 // Note second is intentionally unexported
@@ -50,8 +54,14 @@ var (
 	errRouteNotFound = errors.New("route not found")
 )
 
-func RateByHeader(name string, valid func(string) bool, signature func(string) string, failCode int, failMsg string) *rateByHeader {
-	return &rateByHeader{name, valid, signature, failCode, failMsg}
+func RateByHeader(
+	name string,
+	valid IsValidHeaderValue,
+	signature SignatureFromHeaderValue,
+	failCode int,
+	failMsg string,
+) *rateBy {
+	return &rateBy{name, valid, signature, failCode, failMsg}
 }
 
 // Create a rate of some amount per given time for example, to create a rate of
@@ -85,9 +95,9 @@ func routeForPath(p reqPath, conf *Conf) *Route {
 // configuration and and rateBy params. Expects conf and route to be non nil.
 // TODO, still needs to be reasonsed what are the consequences of returning
 // *rate vs rate
-func rateForRoute(conf *Conf, r *Route, rateBy *rateByHeader) *rate {
+func rateForRoute(conf *Conf, r *Route, by *rateBy) *rate {
 	var toReturn *rate
-	if v, ok := r.Rates[rateBy]; !ok {
+	if v, ok := r.Rates[by]; !ok {
 		toReturn = &conf.BaseRate
 	} else {
 		toReturn = &v
