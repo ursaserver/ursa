@@ -32,7 +32,7 @@ func TestClientIPAddress(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error creating request object for test case %v", test)
 		}
-		gotIp := clientIpAddr(r)
+		gotIp, _ := clientIpAddr(r)
 		if gotIp != expectedIp {
 			t.Errorf("Expected ip %v got %v", expectedIp, gotIp)
 		}

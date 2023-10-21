@@ -138,7 +138,15 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// TODO if the request is made to non rate limited path, forward to reverse
 	// proxy immediately
-	rateBy, sig, isvalid := findReqSignature(r, s.rateBys)
+	rateBy, sig, isvalid, err := findReqSignature(r, s.rateBys)
+	// If there is error finding request signature, for example if the rate
+	// limiting is to be done by IP  and the IP adddress is not in
+	// HOST:PORT format, or when it fails for other reason, return error
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, err)
+	}
+
 	// Note that it's faster to check and fail on invalid request signature
 	// thus we're not decrementing the token for any invalid token
 	if !isvalid {
@@ -264,10 +272,11 @@ func (s *server) createBucket(id reqPath, b *box) {
 
 // Find what the request signature should be for a request and also finds what
 // is the thing to rate limit by (RateBy) the given request.
-func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader, reqSignature, bool) {
+func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader, reqSignature, bool, error) {
 	// Find if any of the header fields in RateBy are present.
 	rateby := RateByIP // default
 	key := ""
+	var err error
 	for _, r := range rateBys {
 		// Note here that we could have checked r != RateByIP but
 		// checking   might also guard cases when serval instances of
@@ -283,9 +292,9 @@ func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader
 		}
 	}
 	if rateby.header == RateByIP.header {
-		key = clientIpAddr(req)
+		key, err = clientIpAddr(req)
 	}
-	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby.header, key)), rateby.valid(key)
+	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby.header, key)), rateby.valid(key), err
 }
 
 // Gets path of the request. This is made a separte function in case there is
