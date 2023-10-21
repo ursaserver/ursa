@@ -22,13 +22,13 @@ type (
 type server struct {
 	id                string
 	conf              *Conf
-	rateBys           []*rateByHeader
+	rateBys           []*rateBy
 	bucketsStaleAfter time.Duration
 	boxes             map[reqSignature]*box
 	gifters           map[gifterId]*gifter
 	pathRate          func(reqPath) *Route
 	proxy             *httputil.ReverseProxy
-	sync.RWMutex
+	mu                sync.RWMutex
 }
 
 func (s *server) String() string {
@@ -40,7 +40,7 @@ type bucketId string
 type box struct {
 	server  *server
 	id      reqSignature // request signature
-	rateBy  *rateByHeader
+	rateBy  *rateBy
 	buckets map[bucketId]*bucket
 	sync.RWMutex
 }
@@ -77,16 +77,16 @@ func New(conf Conf) *server {
 		// changed once loaded.
 		return routeForPath(r, &conf)
 	})
-	allRateBys := make(map[*rateByHeader]bool)
+	allRateBys := make(map[*rateBy]bool)
 	for _, route := range conf.Routes {
 		rates := route.Rates
 		for rateBy, r := range rates {
 			allRateBys[rateBy] = true
 			gifterId := generateGifterId(r)
 			// Check if the gifter with the id already exists
-			s.RLock()
+			s.mu.RLock()
 			_, ok := s.gifters[gifterId]
-			s.RUnlock()
+			s.mu.RUnlock()
 			if !ok {
 				// Create a gifter
 				g := &gifter{
@@ -95,13 +95,13 @@ func New(conf Conf) *server {
 					id:      gifterId,
 					buckets: new(linkedList[*bucket]),
 				}
-				s.Lock()
+				s.mu.Lock()
 				s.gifters[gifterId] = g
-				s.Unlock()
+				s.mu.Unlock()
 			}
 		}
 	}
-	s.rateBys = make([]*rateByHeader, 0)
+	s.rateBys = make([]*rateBy, 0)
 	for k := range allRateBys {
 		s.rateBys = append(s.rateBys, k)
 	}
@@ -156,20 +156,20 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("got request at", r.URL.Path)
 	// Find a box for given signature
-	s.RLock()
+	s.mu.RLock()
 	_, ok := s.boxes[sig]
-	s.RUnlock()
+	s.mu.RUnlock()
 	if !ok {
 		// create box with given signature and rateBy fields
-		s.Lock()
+		s.mu.Lock()
 		log.Println("creating box with signature", sig)
 		bx := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
 		s.boxes[sig] = &bx
-		s.Unlock()
+		s.mu.Unlock()
 	}
-	s.RLock()
+	s.mu.RLock()
 	bx := s.boxes[sig]
-	s.RUnlock()
+	s.mu.RUnlock()
 	path := findPath(r)
 	bx.RLock()
 	// TODO
@@ -258,9 +258,9 @@ func (s *server) createBucket(id reqPath, b *box) {
 	b.buckets[idForBucket] = newBucket
 	log.Println("created new bucket", newBucket)
 	b.Unlock()
-	b.server.RLock()
+	b.server.mu.RLock()
 	gifter, ok := b.server.gifters[generateGifterId(*rate)]
-	b.server.RUnlock()
+	b.server.mu.RUnlock()
 	if !ok {
 		log.Fatalf("cannot find gifter for rate %v", *rate)
 	}
@@ -272,7 +272,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 
 // Find what the request signature should be for a request and also finds what
 // is the thing to rate limit by (RateBy) the given request.
-func findReqSignature(req *http.Request, rateBys []*rateByHeader) (*rateByHeader, reqSignature, bool, error) {
+func findReqSignature(req *http.Request, rateBys []*rateBy) (*rateBy, reqSignature, bool, error) {
 	// Find if any of the header fields in RateBy are present.
 	rateby := RateByIP // default
 	key := ""
