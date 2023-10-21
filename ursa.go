@@ -53,6 +53,7 @@ type bucket struct {
 	id           bucketId
 	tokens       int
 	lastAccessed time.Time
+	lastGifted   time.Time
 	rate         *rate
 	box          *box
 	sync.Mutex
@@ -206,7 +207,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// TODO enhance rejection message. Probably allow it to make customizable
 		// Note that by allowing the tokens to go below negative value, we're enforcing
 		// a punishment mechanism for when request is made when you're already rate limited.
-		tryAgainInSeconds := buck.tokens * -1 * int(tickOnceEvery(*buck.rate).Seconds())
+		tryAgainInSeconds := secondsBeforeSuccess(
+			time.Now(), buck.lastGifted, buck.rate, buck.tokens)
 		w.WriteHeader(http.StatusTooManyRequests)
 		fmt.Fprintf(w, "Rate limited. Try again in %v seconds", tryAgainInSeconds)
 		buck.Unlock()
@@ -252,6 +254,7 @@ func (s *server) createBucket(id reqPath, b *box) {
 		tokens:       tokens,
 		rate:         rate,
 		lastAccessed: acc,
+		lastGifted:   acc,
 		box:          b,
 		Mutex:        sync.Mutex{},
 	}
