@@ -39,10 +39,6 @@ const (
 	Day             = Hour * 24
 )
 
-const (
-	MaxRequestsPerSec = 1 // per second
-)
-
 var (
 	RateByIP = RateByHeader(
 		"IP",
@@ -50,7 +46,6 @@ var (
 		func(s string) string { return s },  // Header to signature map. We use identity here
 		400,
 		"")
-	ErrMaxRateExceed = errors.New("rate exceed maximum capacity")
 	errRouteNotFound = errors.New("route not found")
 )
 
@@ -64,16 +59,8 @@ func RateByHeader(
 	return &rateBy{name, valid, signature, failCode, failMsg}
 }
 
-// Create a rate of some amount per given time for example, to create a rate of
-// 500 request per hour, say Rate(500, ursa.Hour)
-//
-// The error returned is non-nil when the rate exceeds the maximum supported
-// rate. The rate value when error is not nil must be discarded.
-func Rate(amount int, time duration) (rate, error) {
-	if amount/int(time) > MaxRequestsPerSec {
-		return rate{}, ErrMaxRateExceed
-	}
-	return rate{amount, time}, nil
+func Rate(amount int, time duration) rate {
+	return rate{amount, time}
 }
 
 // Returns the route on configuration that should be used for the a given
