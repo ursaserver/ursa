@@ -185,7 +185,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	bx.RUnlock()
 	if !ok {
 		log.Println("creating bucket for path", path)
-		s.createBucket(path, bx)
+		s.createBucket(path, bx, route, rateBy)
 	}
 
 	// At this position, we can safely assume that the gifter isn't deleting
@@ -230,24 +230,16 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a bucket with given id inside the given box.
 // Initializes various properties of the bucket like capacity, state time, etc.
 // and then registers the bucket to the gifter to collect gift tokens.
-func (s *server) createBucket(id reqPath, b *box) {
+func (s *server) createBucket(path reqPath, b *box, route *Route, by *rateBy) {
 	b.Lock()
-	var rate *rate
-	// s.pathRate can be read safely without locking because it's never
-	// mutated once set during server initialization
-	matchingRoute := s.routeForPath(id)
-	if matchingRoute == nil {
-		rate = &b.server.conf.BaseRate
-	} else {
-		rate = rateForRoute(b.server.conf, matchingRoute, b.rateBy)
-	}
+	rate := route.Rates[by]
 	acc := time.Now()
 	tokens := rate.Capacity
-	idForBucket := bucketIdForRoute(matchingRoute, id)
+	idForBucket := bucketIdForRoute(route, path)
 	newBucket := &bucket{
 		id:           idForBucket,
 		tokens:       tokens,
-		rate:         rate,
+		rate:         &rate,
 		lastAccessed: acc,
 		lastGifted:   acc,
 		box:          b,
@@ -256,16 +248,18 @@ func (s *server) createBucket(id reqPath, b *box) {
 	b.buckets[idForBucket] = newBucket
 	log.Println("created new bucket", newBucket)
 	b.Unlock()
+
 	b.server.mu.RLock()
-	gifter, ok := b.server.gifters[generateGifterId(*rate)]
+	gifter, ok := b.server.gifters[generateGifterId(rate)]
 	b.server.mu.RUnlock()
 	if !ok {
-		log.Fatalf("cannot find gifter for rate %v", *rate)
+		// Since gifters are pregenerated for all rates, and rates
+		// don't change after the server is initialized, it's fatal
+		// to not find the gifter.
+		log.Fatalf("cannot find gifter for rate %v", rate)
 	}
-	log.Println("adding gifter to appropriate gifter", id)
-	// add the bucket to appropriate gifter
+	log.Println("adding newly generated bucket to appropriate gifter", gifter)
 	gifter.addBucket(newBucket)
-	log.Println("gifter added", id)
 }
 
 // Gets path of the request. This is made a separte function in case there is
