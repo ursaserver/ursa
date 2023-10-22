@@ -13,7 +13,6 @@ var (
 	upstreamURLStr  = "http://localhost:8012"
 	ratelimiterPort = 3012
 	pageDetailRate  = ursa.Rate(2, ursa.Minute)
-	baseRate        = ursa.Rate(5, ursa.Minute)
 )
 
 func conf() (ursa.Conf, error) {
@@ -28,7 +27,6 @@ func conf() (ursa.Conf, error) {
 
 	c := ursa.Conf{
 		Upstream: upstream,
-		BaseRate: baseRate,
 		// regexp.MustCompile The pattern `/page/[^\/]+`  (note that
 		// backticks just denote string literal) tells to match the
 		// string that starts with "/page/" then has one or more of

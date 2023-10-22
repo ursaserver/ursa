@@ -82,20 +82,6 @@ func routeForPath(p reqPath, conf *Conf) *Route {
 	return nil
 }
 
-// Returns the rate to be used for the the given route based on given
-// configuration and and rateBy params. Expects conf and route to be non nil.
-// TODO, still needs to be reasonsed what are the consequences of returning
-// *rate vs rate
-func rateForRoute(conf *Conf, r *Route, by *rateBy) *rate {
-	var toReturn *rate
-	if v, ok := r.Rates[by]; !ok {
-		toReturn = &conf.BaseRate
-	} else {
-		toReturn = &v
-	}
-	return toReturn
-}
-
 // Returns *rateBy, reqSignature, *ErrReqSignature for a *Route based on
 // *http.Request If the route contains no rates to apply for the request, send
 // appropriate error.
