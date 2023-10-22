@@ -46,6 +46,11 @@ const (
 	Day             = Hour * 24
 )
 
+const (
+	NoRateDefinedOnRouteHTTPCode = http.StatusInternalServerError
+	NoRateDefinedByUserOnRequest = http.StatusUnauthorized
+)
+
 var RateByIP = RateByHeader(
 	"",
 	func(_ string) bool { return true }, // Validation
@@ -90,6 +95,7 @@ func getReqSignature(r *http.Request, route *Route) (*rateBy, reqSignature, *Err
 	keySignature := ""
 	key := ""
 	var err *ErrReqSignature = nil
+	var keyReqSig reqSignature = ""
 	rateBysCount := 0
 
 	for by := range route.Rates {
@@ -117,16 +123,24 @@ func getReqSignature(r *http.Request, route *Route) (*rateBy, reqSignature, *Err
 			err = &ErrReqSignature{Code: limitRateBy.failCode, Message: limitRateBy.failMsg}
 		}
 		keySignature = limitRateBy.signature(key)
+		keyReqSig = createReqSignature(limitRateBy, keySignature)
 	} else {
 		if rateBysCount == 0 {
 			err = &ErrReqSignature{
-				Code:       http.StatusInternalServerError,
+				Code:       NoRateDefinedOnRouteHTTPCode,
 				LogMessage: fmt.Sprintf("No rate bys defined on route pattern %s", route.Pattern),
 			}
 		} else {
-			err = &ErrReqSignature{Code: http.StatusUnauthorized}
+			err = &ErrReqSignature{Code: NoRateDefinedByUserOnRequest}
 		}
 	}
-	keyReqSig := reqSignature(fmt.Sprintf("%v-%v", limitRateBy.header, keySignature))
+	// If err exists return zero values for  rateBy and request signature
+	if err != nil {
+		return nil, "", err
+	}
 	return limitRateBy, keyReqSig, err
+}
+
+func createReqSignature(by *rateBy, val string) reqSignature {
+	return reqSignature(fmt.Sprintf("%v-%v", by.header, val))
 }

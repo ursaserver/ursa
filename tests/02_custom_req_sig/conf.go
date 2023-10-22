@@ -43,7 +43,6 @@ func conf() (ursa.Conf, error) {
 
 	c := ursa.Conf{
 		Upstream: upstream,
-		BaseRate: baseRate,
 		Routes: []ursa.Route{
 			{Pattern: r("/"), Rates: ursa.RouteRates{
 				ursa.RateByIP: baseRate,

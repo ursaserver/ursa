@@ -8,7 +8,6 @@ import (
 type Conf struct {
 	Upstream *url.URL
 	Routes   []Route
-	BaseRate rate
 	// Todo add default rates
 	// DefaultRates map[RateBy]rate
 	// TODO add non options to specify non-rate limiting routes
