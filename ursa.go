@@ -26,7 +26,7 @@ type server struct {
 	bucketsStaleAfter time.Duration
 	boxes             map[reqSignature]*box
 	gifters           map[gifterId]*gifter
-	pathRate          func(reqPath) *Route
+	routeForPath      func(reqPath) *Route
 	proxy             *httputil.ReverseProxy
 	mu                sync.RWMutex
 }
@@ -73,7 +73,7 @@ func New(conf Conf) *server {
 	s.gifters = make(map[gifterId]*gifter)
 	s.bucketsStaleAfter = time.Duration(0)
 	s.proxy = httputil.NewSingleHostReverseProxy(conf.Upstream)
-	s.pathRate = memoize.Unary(func(r reqPath) *Route {
+	s.routeForPath = memoize.Unary(func(r reqPath) *Route {
 		// Note that memoization is possible since the configuration is not
 		// changed once loaded.
 		return routeForPath(r, &conf)
@@ -137,31 +137,37 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// TODO if the request is made to non rate limited path, forward to reverse
-	// proxy immediately
-	rateBy, sig, isvalid, err := findReqSignature(r, s.rateBys)
-	// If there is error finding request signature, for example if the rate
-	// limiting is to be done by IP  and the IP adddress is not in
-	// HOST:PORT format, or when it fails for other reason, return error
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, err)
-	}
+	path := findPath(r)
+	// s.pathRate can be read safely without locking because it's never
+	// mutated once set during server initialization
+	route := s.routeForPath(path)
 
-	// Note that it's faster to check and fail on invalid request signature
-	// thus we're not decrementing the token for any invalid token
-	if !isvalid {
-		w.WriteHeader(rateBy.failCode)
-		fmt.Fprint(w, rateBy.failMsg)
+	// If no route found, send request to upstream without rate limting
+	if route == nil {
+		s.proxy.ServeHTTP(w, r)
 		return
 	}
+
+	rateBy, sig, err := getReqSignature(r, route)
+	if err != nil {
+		w.WriteHeader(err.Code)
+		if err.Message != "" {
+			fmt.Fprint(w, err.Message)
+		}
+		if err.LogMessage != "" {
+			log.Println()
+		}
+		return
+	}
+
 	log.Println("got request at", r.URL.Path)
+
 	// Find a box for given signature
 	s.mu.RLock()
 	_, ok := s.boxes[sig]
 	s.mu.RUnlock()
 	if !ok {
-		// create box with given signature and rateBy fields
+		// Create box with given signature and rateBy fields
 		s.mu.Lock()
 		log.Println("creating box with signature", sig)
 		bx := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
@@ -171,17 +177,11 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	bx := s.boxes[sig]
 	s.mu.RUnlock()
-	path := findPath(r)
 	bx.RLock()
-	// TODO
-	// Here we are assuming that it's safe to read the pathRate function without
-	// grabbing a lock since this attribute is set once during server creation
-	// and never changed later.
-	// Grabbing a Read lock isn't too big of performance issue if needed
-	// but it will mean that someone waiting on a write lock will block until
-	// all read locks are released.
-	matchingRoute := s.pathRate(path)
-	_, ok = bx.buckets[bucketIdForRoute(matchingRoute, path)]
+
+	// Find appropriate bucket
+	buckId := bucketIdForRoute(route, path)
+	_, ok = bx.buckets[buckId]
 	bx.RUnlock()
 	if !ok {
 		log.Println("creating bucket for path", path)
@@ -189,10 +189,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// At this position, we can safely assume that the gifter isn't deleting
-	// this bucket as it would require gifter to acquire a Write Lock to the box
-	// which can't be granted while there's still a reader.
+	// this bucket as it would require gifter to acquire a Write Lock to the **box**
+	// which can't be granted while we still have a read lock to the box.
 	bx.RLock()
-	buck := bx.buckets[bucketIdForRoute(matchingRoute, path)]
+	buck := bx.buckets[buckId]
 	log.Println("bucket is", buck)
 	bx.RUnlock()
 
@@ -233,14 +233,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *server) createBucket(id reqPath, b *box) {
 	b.Lock()
 	var rate *rate
-	// TODO
-	// Here we are assuming that it's safe to read the pathRate function without
-	// grabbing a lock since this attribute is set once during server creation
-	// and never changed later.
-	// Grabbing a Read lock isn't too big of performance issue if needed
-	// but it will mean that someone waiting on a write lock will block until
-	// all read locks are released.
-	matchingRoute := s.pathRate(id)
+	// s.pathRate can be read safely without locking because it's never
+	// mutated once set during server initialization
+	matchingRoute := s.routeForPath(id)
 	if matchingRoute == nil {
 		rate = &b.server.conf.BaseRate
 	} else {
@@ -271,33 +266,6 @@ func (s *server) createBucket(id reqPath, b *box) {
 	// add the bucket to appropriate gifter
 	gifter.addBucket(newBucket)
 	log.Println("gifter added", id)
-}
-
-// Find what the request signature should be for a request and also finds what
-// is the thing to rate limit by (RateBy) the given request.
-func findReqSignature(req *http.Request, rateBys []*rateBy) (*rateBy, reqSignature, bool, error) {
-	// Find if any of the header fields in RateBy are present.
-	rateby := RateByIP // default
-	key := ""
-	var err error
-	for _, r := range rateBys {
-		// Note here that we could have checked r != RateByIP but
-		// checking   might also guard cases when serval instances of
-		// RateByIP are created by deferencing and copying the struct
-		// into different variable.
-		if r.header == RateByIP.header {
-			continue
-		}
-		if val := req.Header.Get(r.header); val != "" {
-			rateby = r
-			key = rateby.signature(val)
-			break
-		}
-	}
-	if rateby.header == RateByIP.header {
-		key, err = clientIpAddr(req)
-	}
-	return rateby, reqSignature(fmt.Sprintf("%v-%v", rateby.header, key)), rateby.valid(key), err
 }
 
 // Gets path of the request. This is made a separte function in case there is

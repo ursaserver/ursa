@@ -1,7 +1,8 @@
 package ursa
 
 import (
-	"errors"
+	"fmt"
+	"net/http"
 )
 
 type (
@@ -13,6 +14,12 @@ type (
 type rate struct {
 	Capacity            int
 	RefillDurationInSec duration
+}
+
+type ErrReqSignature struct {
+	Message    string
+	LogMessage string
+	Code       int
 }
 
 type rateBy struct {
@@ -39,15 +46,12 @@ const (
 	Day             = Hour * 24
 )
 
-var (
-	RateByIP = RateByHeader(
-		"IP",
-		func(_ string) bool { return true }, // Validation
-		func(s string) string { return s },  // Header to signature map. We use identity here
-		400,
-		"")
-	errRouteNotFound = errors.New("route not found")
-)
+var RateByIP = RateByHeader(
+	"",
+	func(_ string) bool { return true }, // Validation
+	func(s string) string { return s },  // Header to signature map. We use identity here
+	400,
+	"")
 
 func RateByHeader(
 	name string,
@@ -90,4 +94,53 @@ func rateForRoute(conf *Conf, r *Route, by *rateBy) *rate {
 		toReturn = &v
 	}
 	return toReturn
+}
+
+// Returns *rateBy, reqSignature, *ErrReqSignature for a *Route based on
+// *http.Request If the route contains no rates to apply for the request, send
+// appropriate error.
+func getReqSignature(r *http.Request, route *Route) (*rateBy, reqSignature, *ErrReqSignature) {
+	var limitRateBy *rateBy
+	keySignature := ""
+	key := ""
+	var err *ErrReqSignature = nil
+	rateBysCount := 0
+
+	for by := range route.Rates {
+		rateBysCount++
+		if by == RateByIP {
+			limitRateBy = RateByIP
+			continue
+		}
+		if val := r.Header.Get(by.header); val != "" {
+			limitRateBy = by
+			key = val
+			break
+		}
+	}
+
+	if limitRateBy == RateByIP {
+		k, e := clientIpAddr(r)
+		key = k
+		if e != nil {
+			err = &ErrReqSignature{Code: http.StatusBadRequest, Message: e.Error()}
+		}
+	}
+	if limitRateBy != nil {
+		if !limitRateBy.valid(key) {
+			err = &ErrReqSignature{Code: limitRateBy.failCode, Message: limitRateBy.failMsg}
+		}
+		keySignature = limitRateBy.signature(key)
+	} else {
+		if rateBysCount == 0 {
+			err = &ErrReqSignature{
+				Code:       http.StatusInternalServerError,
+				LogMessage: fmt.Sprintf("No rate bys defined on route pattern %s", route.Pattern),
+			}
+		} else {
+			err = &ErrReqSignature{Code: http.StatusUnauthorized}
+		}
+	}
+	keyReqSig := reqSignature(fmt.Sprintf("%v-%v", limitRateBy.header, keySignature))
+	return limitRateBy, keyReqSig, err
 }
