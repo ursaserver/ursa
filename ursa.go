@@ -19,6 +19,11 @@ type (
 	reqPath      string
 )
 
+type reqPathAndMethod struct {
+	path   reqPath
+	method string
+}
+
 type server struct {
 	id                string
 	conf              *Conf
@@ -26,7 +31,7 @@ type server struct {
 	bucketsStaleAfter time.Duration
 	boxes             map[reqSignature]*box
 	gifters           map[gifterId]*gifter
-	routeForPath      func(reqPath) *Route
+	routeForPath      func(reqPathAndMethod) *Route
 	proxy             *httputil.ReverseProxy
 	mu                sync.RWMutex
 }
@@ -73,7 +78,7 @@ func New(conf Conf) *server {
 	s.gifters = make(map[gifterId]*gifter)
 	s.bucketsStaleAfter = time.Duration(0)
 	s.proxy = httputil.NewSingleHostReverseProxy(conf.Upstream)
-	s.routeForPath = memoize.Unary(func(r reqPath) *Route {
+	s.routeForPath = memoize.Unary(func(r reqPathAndMethod) *Route {
 		// Note that memoization is possible since the configuration is not
 		// changed once loaded.
 		return routeForPath(r, &conf)
@@ -125,10 +130,36 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 		if exitOnErr {
 			fmt.Println(str)
 		}
+		err()
 	}
 	if conf.Upstream == nil {
 		print("upstream url can't be nil")
-		err()
+	}
+	if conf.Routes == nil {
+		print("routes cannot be nil")
+	} else if len(conf.Routes) == 0 {
+		print("zero routes")
+	} else {
+		for _, r := range conf.Routes {
+			if r.Pattern == nil {
+				msg := fmt.Sprintf("route %v pattern is nil", r)
+				print(msg)
+			}
+			if r.Rates == nil {
+				msg := fmt.Sprintf("route %v rates is nil", r)
+				print(msg)
+			} else if len(r.Rates) == 0 {
+				msg := fmt.Sprintf("no rates defined in route %v", r)
+				print(msg)
+			}
+			if r.Methods == nil {
+				msg := fmt.Sprintf("no headers defined in route %v", r)
+				print(msg)
+			} else if len(r.Methods) == 0 {
+				msg := fmt.Sprintf("length of allowed headers in route %v is 0", r)
+				print(msg)
+			}
+		}
 	}
 	if hasError && exitOnErr {
 		os.Exit(1)
@@ -140,7 +171,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := findPath(r)
 	// s.pathRate can be read safely without locking because it's never
 	// mutated once set during server initialization
-	route := s.routeForPath(path)
+	route := s.routeForPath(reqPathAndMethod{path, r.Method})
 
 	// If no route found, send request to upstream without rate limting
 	if route == nil {

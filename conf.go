@@ -11,6 +11,7 @@ type Conf struct {
 }
 
 type Route struct {
+	Methods []string
 	Pattern *regexp.Regexp // regex describing HTTP path to match
 	Rates   RouteRates
 }

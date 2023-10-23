@@ -44,10 +44,14 @@ func conf() (ursa.Conf, error) {
 	c := ursa.Conf{
 		Upstream: upstream,
 		Routes: []ursa.Route{
-			{Pattern: r("/"), Rates: ursa.RouteRates{
-				ursa.RateByIP: baseRate,
-				RateByAuth:    homeAuthenticatedRate,
-			}},
+			{
+				Methods: []string{"GET"},
+				Pattern: r("/"),
+				Rates: ursa.RouteRates{
+					ursa.RateByIP: baseRate,
+					RateByAuth:    homeAuthenticatedRate,
+				},
+			},
 		},
 	}
 	if hasError := ursa.ValidateConf(c, true); hasError {
