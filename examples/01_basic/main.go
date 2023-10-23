@@ -21,9 +21,12 @@ func ursaconfig(upstream *url.URL) ursa.Conf {
 	IP := ursa.RateByIP
 	r := regexp.MustCompile
 	conf.Routes = []ursa.Route{
-		{Pattern: r(".*"), Rates: ursa.RouteRates{
-			IP: Rate1,
-		}},
+		{
+			Methods: []string{"GET"},
+			Pattern: r(".*"), Rates: ursa.RouteRates{
+				IP: Rate1,
+			},
+		},
 	}
 	return conf
 }
