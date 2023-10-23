@@ -34,7 +34,11 @@ func conf() (ursa.Conf, error) {
 		// and "page/hello-123-word" but not "page/1/world" or
 		// "page/1/". Note that the trailing slash matters.
 		Routes: []ursa.Route{
-			{Pattern: r(`/page/[^\/]+`), Rates: ursa.RouteRates{ursa.RateByIP: pageDetailRate}},
+			{
+				Methods: []string{"GET"},
+				Pattern: r(`/page/[^\/]+`),
+				Rates:   ursa.RouteRates{ursa.RateByIP: pageDetailRate},
+			},
 		},
 	}
 	if hasError := ursa.ValidateConf(c, true); hasError {

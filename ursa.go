@@ -125,10 +125,36 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 		if exitOnErr {
 			fmt.Println(str)
 		}
+		err()
 	}
 	if conf.Upstream == nil {
 		print("upstream url can't be nil")
-		err()
+	}
+	if conf.Routes == nil {
+		print("routes cannot be nil")
+	} else if len(conf.Routes) == 0 {
+		print("zero routes")
+	} else {
+		for _, r := range conf.Routes {
+			if r.Pattern == nil {
+				msg := fmt.Sprintf("route %v pattern is nil", r)
+				print(msg)
+			}
+			if r.Rates == nil {
+				msg := fmt.Sprintf("route %v rates is nil", r)
+				print(msg)
+			} else if len(r.Rates) == 0 {
+				msg := fmt.Sprintf("no rates defined in route %v", r)
+				print(msg)
+			}
+			if r.Methods == nil {
+				msg := fmt.Sprintf("no allowed methods defined for route %v", r)
+				print(msg)
+			} else if len(r.Methods) == 0 {
+				msg := fmt.Sprintf("length of allowed methods in route %v is 0", r)
+				print(msg)
+			}
+		}
 	}
 	if hasError && exitOnErr {
 		os.Exit(1)
