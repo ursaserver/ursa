@@ -72,15 +72,26 @@ func Rate(amount int, time duration) rate {
 	return rate{amount, time}
 }
 
+func isMethodInMethods(candidate string, methods []string) bool {
+	for _, current := range methods {
+		if current == candidate {
+			return true
+		}
+	}
+	return false
+}
+
 // Returns the route on configuration that should be used for the a given
 // reqPath. If no matching rate is found, nil, is returned.
-func routeForPath(p reqPath, conf *Conf) *Route {
+func routeForPath(p reqPathAndMethod, conf *Conf) *Route {
+	path := p.path
+	method := p.method
 	// Search linearly through the routes in the configuration to find a
 	// pattern that matches reqPath. Note that speed won't be an issue here
 	// since this function is supposed to be memoized when using.
 	// Memoization should be possible since the configuration is not changed once loaded.
 	for _, r := range conf.Routes {
-		if r.Pattern.MatchString(string(p)) {
+		if r.Pattern.MatchString(string(path)) && isMethodInMethods(method, r.Methods) {
 			return &r
 		}
 	}
