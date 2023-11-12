@@ -3,7 +3,7 @@ package ursa
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
@@ -34,6 +34,7 @@ type server struct {
 	routeForPath      func(reqPathAndMethod) *Route
 	proxy             *httputil.ReverseProxy
 	mu                sync.RWMutex
+	logger            slog.Logger
 }
 
 func (s *server) String() string {
@@ -83,6 +84,12 @@ func New(conf Conf) *server {
 		// changed once loaded.
 		return routeForPath(r, &conf)
 	})
+	// Create a logger
+	if conf.Logfile == nil {
+		conf.Logfile = os.Stdout
+	}
+	logger := slog.New(slog.NewTextHandler(conf.Logfile, nil))
+	s.logger = *logger
 	allRateBys := make(map[*rateBy]bool)
 	for _, route := range conf.Routes {
 		rates := route.Rates
@@ -186,12 +193,12 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, err.Message)
 		}
 		if err.LogMessage != "" {
-			log.Println()
+			s.logger.Error(err.LogMessage)
 		}
 		return
 	}
 
-	log.Println("got request at", r.URL.Path)
+	s.logger.Info("got request at", "path", r.URL.Path)
 
 	// Find a box for given signature
 	s.mu.RLock()
@@ -200,7 +207,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// Create box with given signature and rateBy fields
 		s.mu.Lock()
-		log.Println("creating box with signature", sig)
+		s.logger.Info("creating box with signature", "signature", sig)
 		bx := box{id: sig, server: s, rateBy: rateBy, buckets: map[bucketId]*bucket{}}
 		s.boxes[sig] = &bx
 		s.mu.Unlock()
@@ -215,7 +222,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, ok = bx.buckets[buckId]
 	bx.RUnlock()
 	if !ok {
-		log.Println("creating bucket for path", path)
+		s.logger.Info("creating bucket for path", "path", path)
 		s.createBucket(path, bx, route, rateBy)
 	}
 
@@ -224,12 +231,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// which can't be granted while we still have a read lock to the box.
 	bx.RLock()
 	buck := bx.buckets[buckId]
-	log.Println("bucket is", buck)
 	bx.RUnlock()
 
-	log.Println("before locking bucket to check for token count", buck)
 	buck.Lock()
-	log.Println("locking bucket to check for token count", buck)
 	// We check if the no. of tokens is >= 1
 	// Note that by allowing the tokens to go below negative value, we're enforcing
 	// a punishment mechanism for when request is made when you're already rate limited.
@@ -277,7 +281,7 @@ func (s *server) createBucket(path reqPath, b *box, route *Route, by *rateBy) {
 		Mutex:        sync.Mutex{},
 	}
 	b.buckets[idForBucket] = newBucket
-	log.Println("created new bucket", newBucket)
+	s.logger.Info("created new bucket", "bucket", newBucket)
 	b.Unlock()
 
 	b.server.mu.RLock()
@@ -287,9 +291,9 @@ func (s *server) createBucket(path reqPath, b *box, route *Route, by *rateBy) {
 		// Since gifters are pregenerated for all rates, and rates
 		// don't change after the server is initialized, it's fatal
 		// to not find the gifter.
-		log.Fatalf("cannot find gifter for rate %v", rate)
+		s.logger.Info("cannot find gifter for rate", "rate", rate)
 	}
-	log.Println("adding newly generated bucket to appropriate gifter", gifter)
+	s.logger.Info("adding newly generated bucket to appropriate gifter", "gifter", gifter)
 	gifter.addBucket(newBucket)
 }
 

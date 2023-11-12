@@ -1,6 +1,7 @@
 package ursa
 
 import (
+	"io"
 	"net/url"
 	"regexp"
 )
@@ -8,6 +9,7 @@ import (
 type Conf struct {
 	Upstream *url.URL
 	Routes   []Route
+	Logfile  io.Writer
 }
 
 type Route struct {

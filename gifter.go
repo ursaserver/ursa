@@ -2,7 +2,6 @@ package ursa
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"sync"
 	"time"
@@ -65,19 +64,18 @@ func (g *gifter) gift() {
 			// Gifter giftes rate.Capacity tokens at max
 			bucket.tokens = min(bucket.tokens+bucket.rate.Capacity, bucket.rate.Capacity)
 			bucket.lastGifted = time.Now()
-			log.Println("bucket", bucket, "now has", bucket.tokens, "tokens")
+			g.server.logger.Info("gifting tokens", "bucket", bucket.id, "tokens", bucket.tokens)
 		} else {
 			// If the bucket is full remove the node containing bucket from
 			// gifters linked list chain if the stale time has exceeded
 			if time.Now().After(bucket.lastAccessed.Add(staleDuration)) {
-				log.Println("trying to remove stale bucket", bucket)
+				g.server.logger.Info("removing stale bucket", "bucket", bucket.id)
 				// delete the bucket from the box
 				g.buckets.removeNode(n)
-				log.Println("removed bucket from gifters chain", bucket)
+				g.server.logger.Info("removed bucket from gifters chain", "bucket", bucket.id)
 				n.value.box.Lock()
-				log.Println("remove bucket from the boxes buckets map", bucket.id)
 				delete(n.value.box.buckets, bucket.id)
-				log.Println("remove bucket from the boxes buckets map", bucket.id)
+				g.server.logger.Info("removed bucket from the boxes buckets map", "bucket", bucket.id)
 				n.value.box.Unlock()
 			}
 		}
