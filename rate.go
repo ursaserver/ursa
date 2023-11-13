@@ -23,18 +23,18 @@ type ErrReqSignature struct {
 }
 
 type RateBy struct {
-	header string // Header field to limit the rate by
-	valid  func(string) bool
-	// signature is a function that converts the header value into
-	// something. Here signature means the identity of the user/downstream
+	Header string // Header field to limit the rate by
+	Valid  func(string) bool
+	// Signature is a function that converts the header value into
+	// something. Here Signature means the identity of the user/downstream
 	// client that this header value represents. For example if the header
-	// value is JWT token, the signature function is the one that takes an
+	// value is JWT token, the Signature function is the one that takes an
 	// access token and returns user id (or sth like that) that serves as
 	// the name of the bucket. For details see
 	// https://github.com/ursaserver/ursa/issues/12
-	signature func(string) string
-	failCode  int    // Status code when the validation fails
-	failMsg   string // Message to respond with if the validation fails
+	Signature func(string) string
+	FailCode  int    // Status code when the validation fails
+	FailMsg   string // Message to respond with if the validation fails
 }
 
 type RouteRates = map[*RateBy]Rate
@@ -115,7 +115,7 @@ func getReqSignature(r *http.Request, route *Route) (*RateBy, reqSignature, *Err
 			limitRateBy = RateByIP
 			continue
 		}
-		if val := r.Header.Get(by.header); val != "" {
+		if val := r.Header.Get(by.Header); val != "" {
 			limitRateBy = by
 			key = val
 			break
@@ -130,10 +130,10 @@ func getReqSignature(r *http.Request, route *Route) (*RateBy, reqSignature, *Err
 		}
 	}
 	if limitRateBy != nil {
-		if !limitRateBy.valid(key) {
-			err = &ErrReqSignature{Code: limitRateBy.failCode, Message: limitRateBy.failMsg}
+		if !limitRateBy.Valid(key) {
+			err = &ErrReqSignature{Code: limitRateBy.FailCode, Message: limitRateBy.FailMsg}
 		}
-		keySignature = limitRateBy.signature(key)
+		keySignature = limitRateBy.Signature(key)
 		keyReqSig = createReqSignature(limitRateBy, keySignature)
 	} else {
 		if rateBysCount == 0 {
@@ -153,5 +153,5 @@ func getReqSignature(r *http.Request, route *Route) (*RateBy, reqSignature, *Err
 }
 
 func createReqSignature(by *RateBy, val string) reqSignature {
-	return reqSignature(fmt.Sprintf("%v-%v", by.header, val))
+	return reqSignature(fmt.Sprintf("%v-%v", by.Header, val))
 }

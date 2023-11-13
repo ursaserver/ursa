@@ -135,11 +135,11 @@ func TestGetReqSignature(t *testing.T) {
 			},
 		}
 		// Check if it's valid
-		if RateByAuth.valid(auth) {
+		if RateByAuth.Valid(auth) {
 			testCase.expRateBy = RateByAuth
-			testCase.expReqSig = createReqSignature(RateByAuth, RateByAuth.signature(auth))
+			testCase.expReqSig = createReqSignature(RateByAuth, RateByAuth.Signature(auth))
 		} else {
-			testCase.expErr = &ErrReqSignature{Code: RateByAuth.failCode, Message: RateByAuth.failMsg}
+			testCase.expErr = &ErrReqSignature{Code: RateByAuth.FailCode, Message: RateByAuth.FailMsg}
 		}
 		tests = append(tests, testCase)
 	}
