@@ -50,7 +50,7 @@ func NilRoutePattern() Conf {
 		Routes: []Route{
 			{
 				Methods: []string{"GET"},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 		},
 	}
@@ -62,7 +62,7 @@ func NilMethodsRoute() Conf {
 		Upstream: upstream(),
 		Routes: []Route{{
 			Pattern: regexp.MustCompile("/about"),
-			Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+			Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 		}},
 	}
 	return conf
@@ -74,7 +74,7 @@ func ZeroMethodsRoute() Conf {
 		Routes: []Route{{
 			Methods: []string{},
 			Pattern: regexp.MustCompile("/about"),
-			Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+			Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 		}},
 	}
 	return conf
@@ -98,7 +98,7 @@ func ValidConfSingleRoute() Conf {
 		Routes: []Route{{
 			Methods: []string{"GET"},
 			Pattern: regexp.MustCompile("/about"),
-			Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+			Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 		}},
 	}
 	return conf
@@ -111,11 +111,11 @@ func InvalidConfBySecondRoutePattern() Conf {
 			{
 				Methods: []string{"GET"},
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 			{
 				Methods: []string{"GET"},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 		},
 	}
@@ -129,7 +129,7 @@ func InvalidConfBySecondRouteRates() Conf {
 			{
 				Pattern: regexp.MustCompile("/about"),
 				Methods: []string{"GET"},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 			{
 				Pattern: regexp.MustCompile("/about"),
@@ -147,11 +147,11 @@ func InvalidConfBySecondRouteMethods() Conf {
 			{
 				Pattern: regexp.MustCompile("/about"),
 				Methods: []string{"GET"},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 			{
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 		},
 	}
@@ -165,12 +165,12 @@ func InvalidConfBySecondRouteEmptyMethods() Conf {
 			{
 				Pattern: regexp.MustCompile("/about"),
 				Methods: []string{"GET"},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 			{
 				Pattern: regexp.MustCompile("/about"),
 				Methods: []string{},
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 			},
 		},
 	}
@@ -183,12 +183,12 @@ func ValidConfMultipleRoutes() Conf {
 		Routes: []Route{
 			{
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 				Methods: []string{"GET"},
 			},
 			{
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByIP: Rate(60, Hour)},
+				Rates:   RouteRates{RateByIP: NewRate(60, Hour)},
 				Methods: []string{"POST"},
 			},
 		},

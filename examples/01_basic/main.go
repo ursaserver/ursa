@@ -11,7 +11,7 @@ import (
 )
 
 func ursaconfig(upstream *url.URL) ursa.Conf {
-	Rate1 := ursa.Rate(5, ursa.Minute)
+	Rate1 := ursa.NewRate(5, ursa.Minute)
 
 	// Define the upstream server
 	var conf ursa.Conf

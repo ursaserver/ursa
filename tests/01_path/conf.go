@@ -12,7 +12,7 @@ import (
 var (
 	upstreamURLStr  = "http://localhost:8012"
 	ratelimiterPort = 3012
-	pageDetailRate  = ursa.Rate(2, ursa.Minute)
+	pageDetailRate  = ursa.NewRate(2, ursa.Minute)
 )
 
 func conf() (ursa.Conf, error) {

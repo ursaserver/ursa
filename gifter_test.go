@@ -7,15 +7,15 @@ import (
 
 func TestTickOnceEvery(t *testing.T) {
 	type test struct {
-		r rate
+		r Rate
 		t time.Duration
 	}
 	tests := []test{
-		{r: rate{60, Minute}, t: time.Minute},
-		{r: rate{30, Minute}, t: time.Minute},
-		{r: rate{60, Hour}, t: time.Hour},
-		{r: rate{30, Hour}, t: time.Hour},
-		{r: rate{30, Day}, t: time.Hour * 24},
+		{r: Rate{60, Minute}, t: time.Minute},
+		{r: Rate{30, Minute}, t: time.Minute},
+		{r: Rate{60, Hour}, t: time.Hour},
+		{r: Rate{30, Hour}, t: time.Hour},
+		{r: Rate{30, Day}, t: time.Hour * 24},
 	}
 	for _, test := range tests {
 		expected := test.t
@@ -28,7 +28,7 @@ func TestTickOnceEvery(t *testing.T) {
 
 func TestSecondsBeforeSuccess(t *testing.T) {
 	type test struct {
-		r                         rate
+		r                         Rate
 		currentTime               time.Time
 		lastGiftedTime            time.Time
 		tokens                    int
@@ -37,35 +37,35 @@ func TestSecondsBeforeSuccess(t *testing.T) {
 	timeInPast := time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC)
 	tests := []test{
 		{
-			r:                         rate{60, Minute},
+			r:                         Rate{60, Minute},
 			lastGiftedTime:            timeInPast,
 			currentTime:               timeInPast.Add(time.Second * 5),
 			tokens:                    1,
 			expectedSecondsForSuccess: 0,
 		},
 		{
-			r:                         rate{60, Minute},
+			r:                         Rate{60, Minute},
 			lastGiftedTime:            timeInPast,
 			currentTime:               timeInPast.Add(time.Second * 5),
 			tokens:                    0,
 			expectedSecondsForSuccess: 55,
 		},
 		{
-			r:                         rate{60, Minute},
+			r:                         Rate{60, Minute},
 			lastGiftedTime:            timeInPast,
 			currentTime:               timeInPast.Add(time.Second * 5),
 			tokens:                    -10,
 			expectedSecondsForSuccess: 55,
 		},
 		{
-			r:                         rate{60, Minute},
+			r:                         Rate{60, Minute},
 			lastGiftedTime:            timeInPast,
 			currentTime:               timeInPast.Add(time.Second * 5),
 			tokens:                    -110,
 			expectedSecondsForSuccess: 55 + 60,
 		},
 		{
-			r:                         rate{60, Minute},
+			r:                         Rate{60, Minute},
 			lastGiftedTime:            timeInPast,
 			currentTime:               timeInPast.Add(time.Second * 5),
 			tokens:                    -200,

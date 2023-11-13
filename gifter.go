@@ -13,7 +13,7 @@ type gifterId string
 type gifter struct {
 	id        gifterId
 	buckets   *linkedList[*bucket] // Buckets is a linked list of nodes. Each node holds *bucket.
-	rate      rate
+	rate      Rate
 	isRunning bool
 	ticker    time.Ticker
 	server    *server
@@ -26,11 +26,11 @@ func (g *gifter) String() string {
 
 // Returns the duration at which it it needs to tick. This ticking duration is
 // used mostly by the gifter to determine when to gift a token.
-func tickOnceEvery(r rate) time.Duration {
+func tickOnceEvery(r Rate) time.Duration {
 	// noOfTickingsPerSecond := float64(r.Capacity) / float64(r.RefillDurationInSec)
 	// ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
 	// return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
-	return time.Duration(r.RefillDurationInSec * duration(time.Second))
+	return time.Duration(r.RefillDurationInSec * Duration(time.Second))
 }
 
 func (g *gifter) start() {
@@ -97,12 +97,12 @@ func (g *gifter) addBucket(b *bucket) {
 }
 
 // Generate gifter id based on rate
-func generateGifterId(r rate) gifterId {
+func generateGifterId(r Rate) gifterId {
 	return gifterId(fmt.Sprintf("%v-%v", r.Capacity, r.RefillDurationInSec))
 }
 
 // Find in seconds the seconds to wait before you'll have > 0 tokens
-func secondsBeforeSuccess(currentTime time.Time, lastGiftedTime time.Time, r *rate, tokens int) int {
+func secondsBeforeSuccess(currentTime time.Time, lastGiftedTime time.Time, r *Rate, tokens int) int {
 	// If at least one token present currently, no need to wait
 	if tokens > 0 {
 		return 0

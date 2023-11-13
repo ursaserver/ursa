@@ -27,7 +27,7 @@ type reqPathAndMethod struct {
 type server struct {
 	id                string
 	conf              *Conf
-	rateBys           []*rateBy
+	rateBys           []*RateBy
 	bucketsStaleAfter time.Duration
 	boxes             map[reqSignature]*box
 	gifters           map[gifterId]*gifter
@@ -46,7 +46,7 @@ type bucketId string
 type box struct {
 	server  *server
 	id      reqSignature // request signature
-	rateBy  *rateBy
+	rateBy  *RateBy
 	buckets map[bucketId]*bucket
 	sync.RWMutex
 }
@@ -60,7 +60,7 @@ type bucket struct {
 	tokens       int
 	lastAccessed time.Time
 	lastGifted   time.Time
-	rate         *rate
+	rate         *Rate
 	box          *box
 	sync.Mutex
 }
@@ -90,7 +90,7 @@ func New(conf Conf) *server {
 	}
 	logger := slog.New(slog.NewTextHandler(conf.Logfile, nil))
 	s.logger = *logger
-	allRateBys := make(map[*rateBy]bool)
+	allRateBys := make(map[*RateBy]bool)
 	for _, route := range conf.Routes {
 		rates := route.Rates
 		for rateBy, r := range rates {
@@ -114,7 +114,7 @@ func New(conf Conf) *server {
 			}
 		}
 	}
-	s.rateBys = make([]*rateBy, 0)
+	s.rateBys = make([]*RateBy, 0)
 	for k := range allRateBys {
 		s.rateBys = append(s.rateBys, k)
 	}
@@ -265,7 +265,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Create a bucket with given id inside the given box.
 // Initializes various properties of the bucket like capacity, state time, etc.
 // and then registers the bucket to the gifter to collect gift tokens.
-func (s *server) createBucket(path reqPath, b *box, route *Route, by *rateBy) {
+func (s *server) createBucket(path reqPath, b *box, route *Route, by *RateBy) {
 	b.Lock()
 	rate := route.Rates[by]
 	acc := time.Now()

@@ -13,7 +13,7 @@ func TestGetReqSignature(t *testing.T) {
 	var isAuthValid IsValidHeaderValue = func(x string) bool { return len(x) > 5 }
 	identitySigFn := func(x string) string { return x }
 	authFailMsg := "Auth Failed"
-	RateByAuth := RateByHeader(
+	RateByAuth := NewRateBy(
 		authHeader,
 		isAuthValid,
 		identitySigFn,
@@ -33,7 +33,7 @@ func TestGetReqSignature(t *testing.T) {
 		return false
 	}
 	invalidAPIMsg := "Invalid API"
-	RateByApplicattionAPI := RateByHeader(
+	RateByApplicattionAPI := NewRateBy(
 		applicationAPIHeader,
 		isApplicationAPIValid,
 		identitySigFn,
@@ -44,7 +44,7 @@ func TestGetReqSignature(t *testing.T) {
 	type test struct {
 		req       *http.Request
 		route     *Route
-		expRateBy *rateBy
+		expRateBy *RateBy
 		expReqSig reqSignature
 		expErr    *ErrReqSignature
 	}
@@ -74,7 +74,7 @@ func TestGetReqSignature(t *testing.T) {
 			req: requestForPath("/about"),
 			route: &Route{
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByAuth: Rate(100, Hour)},
+				Rates:   RouteRates{RateByAuth: NewRate(100, Hour)},
 			},
 			expRateBy: nil,
 			expReqSig: "",
@@ -84,7 +84,7 @@ func TestGetReqSignature(t *testing.T) {
 			req: requestForPath("/about"),
 			route: &Route{
 				Pattern: regexp.MustCompile("/about"),
-				Rates:   RouteRates{RateByApplicattionAPI: Rate(100, Minute)},
+				Rates:   RouteRates{RateByApplicattionAPI: NewRate(100, Minute)},
 			},
 			expRateBy: nil,
 			expReqSig: "",
@@ -95,8 +95,8 @@ func TestGetReqSignature(t *testing.T) {
 			route: &Route{
 				Pattern: regexp.MustCompile("/about"),
 				Rates: RouteRates{
-					RateByApplicattionAPI: Rate(100, Minute),
-					RateByAuth:            Rate(100, Hour),
+					RateByApplicattionAPI: NewRate(100, Minute),
+					RateByAuth:            NewRate(100, Hour),
 				},
 			},
 			expRateBy: nil,
@@ -108,9 +108,9 @@ func TestGetReqSignature(t *testing.T) {
 			route: &Route{
 				Pattern: regexp.MustCompile("/about"),
 				Rates: RouteRates{
-					RateByApplicattionAPI: Rate(100, Minute),
-					RateByAuth:            Rate(100, Hour),
-					RateByIP:              Rate(60, Hour),
+					RateByApplicattionAPI: NewRate(100, Minute),
+					RateByAuth:            NewRate(100, Hour),
+					RateByIP:              NewRate(60, Hour),
 				},
 			},
 			expRateBy: nil,
@@ -128,9 +128,9 @@ func TestGetReqSignature(t *testing.T) {
 			route: &Route{
 				Pattern: regexp.MustCompile("/about"),
 				Rates: RouteRates{
-					RateByApplicattionAPI: Rate(100, Minute),
-					RateByAuth:            Rate(100, Hour),
-					RateByIP:              Rate(60, Hour),
+					RateByApplicattionAPI: NewRate(100, Minute),
+					RateByAuth:            NewRate(100, Hour),
+					RateByIP:              NewRate(60, Hour),
 				},
 			},
 		}

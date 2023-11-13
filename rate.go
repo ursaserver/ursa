@@ -6,14 +6,14 @@ import (
 )
 
 type (
-	duration                 int
+	Duration                 int
 	IsValidHeaderValue       func(string) bool
 	SignatureFromHeaderValue func(string) string
 )
 
-type rate struct {
+type Rate struct {
 	Capacity            int
-	RefillDurationInSec duration
+	RefillDurationInSec Duration
 }
 
 type ErrReqSignature struct {
@@ -22,7 +22,7 @@ type ErrReqSignature struct {
 	Code       int
 }
 
-type rateBy struct {
+type RateBy struct {
 	header string // Header field to limit the rate by
 	valid  func(string) bool
 	// signature is a function that converts the header value into
@@ -37,10 +37,10 @@ type rateBy struct {
 	failMsg   string // Message to respond with if the validation fails
 }
 
-type RouteRates = map[*rateBy]rate
+type RouteRates = map[*RateBy]Rate
 
 const (
-	second duration = 1 // Note second is intentionally unexported
+	second Duration = 1 // Note second is intentionally unexported
 	Minute          = second * 60
 	Hour            = Minute * 60
 	Day             = Hour * 24
@@ -51,25 +51,25 @@ const (
 	NoRateDefinedByUserOnRequest = http.StatusUnauthorized
 )
 
-var RateByIP = RateByHeader(
+var RateByIP = NewRateBy(
 	"",
 	func(_ string) bool { return true }, // Validation
 	func(s string) string { return s },  // Header to signature map. We use identity here
 	400,
 	"")
 
-func RateByHeader(
+func NewRateBy(
 	name string,
 	valid IsValidHeaderValue,
 	signature SignatureFromHeaderValue,
 	failCode int,
 	failMsg string,
-) *rateBy {
-	return &rateBy{name, valid, signature, failCode, failMsg}
+) *RateBy {
+	return &RateBy{name, valid, signature, failCode, failMsg}
 }
 
-func Rate(amount int, time duration) rate {
-	return rate{amount, time}
+func NewRate(amount int, time Duration) Rate {
+	return Rate{amount, time}
 }
 
 func isMethodInMethods(candidate string, methods []string) bool {
@@ -101,8 +101,8 @@ func routeForPath(p reqPathAndMethod, conf *Conf) *Route {
 // Returns *rateBy, reqSignature, *ErrReqSignature for a *Route based on
 // *http.Request If the route contains no rates to apply for the request, send
 // appropriate error.
-func getReqSignature(r *http.Request, route *Route) (*rateBy, reqSignature, *ErrReqSignature) {
-	var limitRateBy *rateBy
+func getReqSignature(r *http.Request, route *Route) (*RateBy, reqSignature, *ErrReqSignature) {
+	var limitRateBy *RateBy
 	keySignature := ""
 	key := ""
 	var err *ErrReqSignature = nil
@@ -152,6 +152,6 @@ func getReqSignature(r *http.Request, route *Route) (*rateBy, reqSignature, *Err
 	return limitRateBy, keyReqSig, err
 }
 
-func createReqSignature(by *rateBy, val string) reqSignature {
+func createReqSignature(by *RateBy, val string) reqSignature {
 	return reqSignature(fmt.Sprintf("%v-%v", by.header, val))
 }

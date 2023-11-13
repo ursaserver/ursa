@@ -21,12 +21,12 @@ var (
 	// the gifter has had time to gift the token.
 	// This has not been a problem in running tests locally, but we've seen this
 	// in tests run in github actions.
-	homeAuthenticatedRate = ursa.Rate(10, ursa.Hour)
-	baseRate              = ursa.Rate(1, ursa.Hour)
+	homeAuthenticatedRate = ursa.NewRate(10, ursa.Hour)
+	baseRate              = ursa.NewRate(1, ursa.Hour)
 )
 
 func conf() (ursa.Conf, error) {
-	RateByAuth := ursa.RateByHeader(
+	RateByAuth := ursa.NewRateBy(
 		"Authorization",
 		func(s string) bool { return len(s) > 1 },
 		func(s string) string { return s },
