@@ -6,14 +6,14 @@ import (
 )
 
 type (
-	Duration                 int
+	duration                 int
 	IsValidHeaderValue       func(string) bool
 	SignatureFromHeaderValue func(string) string
 )
 
 type Rate struct {
 	Capacity            int
-	RefillDurationInSec Duration
+	RefillDurationInSec duration
 }
 
 type ErrReqSignature struct {
@@ -40,7 +40,7 @@ type RateBy struct {
 type RouteRates = map[*RateBy]Rate
 
 const (
-	second Duration = 1 // Note second is intentionally unexported
+	second duration = 1 // Note second is intentionally unexported
 	Minute          = second * 60
 	Hour            = Minute * 60
 	Day             = Hour * 24
@@ -68,7 +68,7 @@ func NewRateBy(
 	return &RateBy{name, valid, signature, failCode, failMsg}
 }
 
-func NewRate(amount int, time Duration) Rate {
+func NewRate(amount int, time duration) Rate {
 	return Rate{amount, time}
 }
 

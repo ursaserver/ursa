@@ -30,7 +30,7 @@ func tickOnceEvery(r Rate) time.Duration {
 	// noOfTickingsPerSecond := float64(r.Capacity) / float64(r.RefillDurationInSec)
 	// ticksOnceEveryXSeconds := 1 / noOfTickingsPerSecond
 	// return time.Duration(ticksOnceEveryXSeconds * float64(time.Second))
-	return time.Duration(r.RefillDurationInSec * Duration(time.Second))
+	return time.Duration(r.RefillDurationInSec * duration(time.Second))
 }
 
 func (g *gifter) start() {
