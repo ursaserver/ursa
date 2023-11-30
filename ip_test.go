@@ -17,9 +17,9 @@ func TestClientIPAddress(t *testing.T) {
 	tests := []test{
 		{ips: []string{"192.168.1.1", "10.24.3.54"}},
 		{ips: []string{"192.168.1.1"}},
-		{ips: []string{"0.0.12.13:3000"}},
-		{ips: []string{"0.0.12.13:3000", "34.39.34.34"}},
-		{ips: []string{"0.0.12.13:3000", "34.39.34.34", "10.33.53.34"}},
+		{ips: []string{"0.0.12.13"}},
+		{ips: []string{"0.0.12.13", "34.39.34.34"}},
+		{ips: []string{"0.0.12.13", "34.39.34.34", "10.33.53.34"}},
 	}
 	for _, test := range tests {
 		expectedIp := strings.Split(test.ips[0], ":")[0]
