@@ -78,7 +78,7 @@ func TestGetReqSignature(t *testing.T) {
 			},
 			expRateBy: nil,
 			expReqSig: "",
-			expErr:    &ErrReqSignature{Code: NoRateDefinedByUserOnRequest},
+			expErr:    &ErrReqSignature{Code: HeaderValueNotFoundInRequestForRateLimiting},
 		},
 		{
 			req: requestForPath("/about"),
@@ -88,7 +88,7 @@ func TestGetReqSignature(t *testing.T) {
 			},
 			expRateBy: nil,
 			expReqSig: "",
-			expErr:    &ErrReqSignature{Code: NoRateDefinedByUserOnRequest},
+			expErr:    &ErrReqSignature{Code: HeaderValueNotFoundInRequestForRateLimiting},
 		},
 		{
 			req: requestForPath("/about"),
@@ -101,7 +101,7 @@ func TestGetReqSignature(t *testing.T) {
 			},
 			expRateBy: nil,
 			expReqSig: "",
-			expErr:    &ErrReqSignature{Code: NoRateDefinedByUserOnRequest},
+			expErr:    &ErrReqSignature{Code: HeaderValueNotFoundInRequestForRateLimiting},
 		},
 		{
 			req: requestForPath("/about"),

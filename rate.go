@@ -6,22 +6,35 @@ import (
 )
 
 type (
-	duration                 int
+	duration                 int // used in the Rate struct
 	IsValidHeaderValue       func(string) bool
 	SignatureFromHeaderValue func(string) string
 )
 
+// This struct is made public for library authors, if you're writing a rate
+// limiter server using this package, you should use the function [ursa.NewRate]
+// This struct may be made private in future versions.
 type Rate struct {
 	Capacity            int
 	RefillDurationInSec duration
 }
 
+// This is the error objec that is returned if the there is an error creating
+// request signature from a request. A request signature for an unathenticated
+// user may mean their IP address.
 type ErrReqSignature struct {
 	Message    string
 	LogMessage string
 	Code       int
 }
 
+// This struct is made public for library authors, if you're writing a rate
+// limiter server using this package, you should probably use the function
+// NewRateBy
+//
+// This struct may be made private in future versions. If you want to
+// perform rate limiting for unauthenticated users, [ursa.RateByIP] is
+// already provided for you
 type RateBy struct {
 	Header string // Header field to limit the rate by
 	Valid  func(string) bool
@@ -37,8 +50,12 @@ type RateBy struct {
 	FailMsg   string // Message to respond with if the validation fails
 }
 
+// This map type is made public for library authors, if you're writing a rate
+// limiter server using this package, you should not use this.
+// This type may be made private in future versions.
 type RouteRates = map[*RateBy]Rate
 
+// ursa.duration can be created by using one of ursa.Minute, ursa.Hour or ursa.Day
 const (
 	second duration = 1 // Note second is intentionally unexported
 	Minute          = second * 60
@@ -47,10 +64,17 @@ const (
 )
 
 const (
+	// Error of this status code is returned if a request is made to a route
+	// where no rate is defined
 	NoRateDefinedOnRouteHTTPCode = http.StatusInternalServerError
-	NoRateDefinedByUserOnRequest = http.StatusUnauthorized
+	// Error of this status code is returned the desired header value
+	// is not found in the request when creating the request signature
+	HeaderValueNotFoundInRequestForRateLimiting = http.StatusUnauthorized
 )
 
+// RateBy for rate limiting by IP. Note that that users using the same public
+// gateway might be rate limted for each other's request. Currently there is no
+// workaround for that.
 var RateByIP = NewRateBy(
 	"",
 	func(_ string) bool { return true }, // Validation
@@ -58,16 +82,36 @@ var RateByIP = NewRateBy(
 	400,
 	"")
 
+// Create a new RateBy based on an arbitary header
+//
+// Params:
+// header: HTTP Header to preform rate limting by
+// valid: function that checks if the value for that header is valid
+// signature: function that transforms header value to a user identifier
+// failCode: status code to respond if the validation of header value fails
+// failMsg: message if the validation of header value fails
 func NewRateBy(
-	name string,
+	header string,
 	valid IsValidHeaderValue,
 	signature SignatureFromHeaderValue,
 	failCode int,
-	failMsg string,
+	failMsg string, // Message to respond if the validation of header value fails
 ) *RateBy {
-	return &RateBy{name, valid, signature, failCode, failMsg}
+	return &RateBy{header, valid, signature, failCode, failMsg}
 }
 
+// Create a Rate object
+//
+// Params:
+// amount: How many requests are allowed
+// time: the duration of time for the amount of requests
+//
+// You'll have to use either of the three durations:
+// [ursa.Day], [ursa.Hour], [ursa.Minute],
+//
+// If you want to set a rate limit of 20 requests per minute they you say
+//
+//	rate := ursa.NewRate(20, ursa.Minute)
 func NewRate(amount int, time duration) Rate {
 	return Rate{amount, time}
 }
@@ -142,7 +186,7 @@ func getReqSignature(r *http.Request, route *Route) (*RateBy, reqSignature, *Err
 				LogMessage: fmt.Sprintf("No rate bys defined on route pattern %s", route.Pattern),
 			}
 		} else {
-			err = &ErrReqSignature{Code: NoRateDefinedByUserOnRequest}
+			err = &ErrReqSignature{Code: HeaderValueNotFoundInRequestForRateLimiting}
 		}
 	}
 	// If err exists return zero values for  rateBy and request signature

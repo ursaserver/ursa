@@ -70,6 +70,7 @@ func (b *bucket) String() string {
 }
 
 // Create a server based on provided configuration.
+// The server that is returned is a http.Handler as it implemements the ServerHTTP method
 func New(conf Conf) *server {
 	// Validates configuration. The validation func takes care of exist in case of error.
 	ValidateConf(conf, true)
@@ -174,6 +175,9 @@ func ValidateConf(conf Conf, exitOnErr bool) bool {
 	return hasError
 }
 
+// This method makes the server a http.Handler
+// The logic of how a request to ursa server is handled is present in this
+// method
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := findPath(r)
 	// s.pathRate can be read safely without locking because it's never
