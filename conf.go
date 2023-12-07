@@ -13,6 +13,8 @@ import (
 //
 // Routes is a slice of [ursa.Route]. Note that the order of Routes matter
 // in that the rate limiting is done based on the rules of the the first matching route
+// If request doesn't match any of the Routes (request path & request method), it is
+// sent upstream without any rate liming.
 //
 // Logfile is an io.Writer where the logs should be written
 type Conf struct {
@@ -25,8 +27,8 @@ type Conf struct {
 // of the route.
 //
 // Methods is a slice of strings representing method names to match. Method
-// names can be arbitrary. A nil Methods matches all methods. Method names are
-// case insensetive.
+// names can be arbitrary. Method names are case insensetive. At least one method
+// must be defined.
 //
 // Rates is a map ([ursa.RouteRates]) that maps describes the different rates for different
 // RateBys for the route. This is useful for example if on the api/product/ route you want

@@ -50,9 +50,10 @@ type RateBy struct {
 	FailMsg   string // Message to respond with if the validation fails
 }
 
-// This map type is made public for library authors, if you're writing a rate
-// limiter server using this package, you should not use this.
-// This type may be made private in future versions.
+// RouteRates is a map from RateBys for the route. This is a one of the things
+// to describe when defining a [ursa.Route] wherein you describe the different
+// rate lmiting methods that are supported for the route and their
+// corresponding Rates.
 type RouteRates = map[*RateBy]Rate
 
 // ursa.duration can be created by using one of ursa.Minute, ursa.Hour or ursa.Day
@@ -85,11 +86,11 @@ var RateByIP = NewRateBy(
 // Create a new RateBy based on an arbitary header
 //
 // Params:
-// header: HTTP Header to preform rate limting by
-// valid: function that checks if the value for that header is valid
-// signature: function that transforms header value to a user identifier
-// failCode: status code to respond if the validation of header value fails
-// failMsg: message if the validation of header value fails
+// - header: HTTP Header to preform rate limting by
+// - valid: function that checks if the value for that header is valid
+// - signature: function that transforms header value to a user identifier
+// - failCode: status code to respond if the validation of header value fails
+// - failMsg: message if the validation of header value fails
 func NewRateBy(
 	header string,
 	valid IsValidHeaderValue,
@@ -103,8 +104,8 @@ func NewRateBy(
 // Create a Rate object
 //
 // Params:
-// amount: How many requests are allowed
-// time: the duration of time for the amount of requests
+// - amount: How many requests are allowed
+// - time: the duration of time for the amount of requests
 //
 // You'll have to use either of the three durations:
 // [ursa.Day], [ursa.Hour], [ursa.Minute],
