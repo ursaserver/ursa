@@ -94,7 +94,7 @@ func conf() ursa.Conf {
 ## TODOS
 Benchmarking 
 
-**Rate limiter binary**\
+## Rate limiter binary
 If you'd instead create a rate limiter without writing a server in go (although
 it's the recommended approach), checkout the
 [ursaserver](https://github.com/ursaserver/ursaserver) repo. It uses this ursa
